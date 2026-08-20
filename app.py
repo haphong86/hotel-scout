@@ -1471,26 +1471,110 @@ with tab2:
             st.rerun()
 
 
-    # Bảng contacts
-    df_contacts = get_contacts_df()
-    if df_contacts.empty:
-        st.info("Chưa có contact. Nhấn **Thu thập Contact** để bắt đầu!")
+    # ── GIAO DIỆN PHÂN LOẠI THEO TỪNG KHÁCH SẠN / RESORT ───
+    st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+    
+    view_mode = st.radio(
+        "Chế độ hiển thị danh bạ:",
+        ["🏢 Phân loại theo từng Khách sạn / Resort", "📋 Bảng tổng hợp tất cả Contact"],
+        horizontal=True
+    )
+
+    session = get_session()
+    hotels_with_contacts = (
+        session.query(Hotel)
+        .options(joinedload(Hotel.contacts))
+        .filter(Hotel.contacts.any())
+        .order_by(Hotel.rating.desc(), Hotel.name)
+        .all()
+    )
+
+    if view_mode == "🏢 Phân loại theo từng Khách sạn / Resort":
+        # Bộ lọc tìm kiếm khách sạn
+        col_f1, col_f2, col_f3 = st.columns([2, 2, 2])
+        search_kw = col_f1.text_input("🔍 Tìm theo tên Khách sạn/Resort", placeholder="Nhập tên KS...")
+        city_opts = sorted(list(set(h.city for h in hotels_with_contacts if h.city)))
+        city_sel = col_f2.multiselect("📍 Lọc theo Thành phố", options=city_opts)
+        status_sel = col_f3.selectbox("🛡️ Trạng thái Email", ["Tất cả", "Chỉ email Đã xác thực (VALID)", "Chưa scan"])
+
+        # Lọc danh sách
+        displayed_hotels = hotels_with_contacts
+        if search_kw:
+            displayed_hotels = [h for h in displayed_hotels if search_kw.lower() in h.name.lower()]
+        if city_sel:
+            displayed_hotels = [h for h in displayed_hotels if h.city in city_sel]
+
+        st.markdown(f"**🏢 Hiển thị {len(displayed_hotels)} Khách sạn / Resort có liên hệ:**")
+
+        for h in displayed_hotels[:40]:  # Phân trang hiển thị 40 KS mỗi lần
+            contacts = h.contacts or []
+            valid_count = sum(1 for c in contacts if c.verify_status == "VALID")
+            
+            with st.expander(f"🏨 {h.name.upper()}  ·  📍 {h.city or 'VN'}  ·  ⭐ {h.stars or 4}★  ({len(contacts)} Emails — {valid_count} Đã Verify)"):
+                col_info1, col_info2 = st.columns([3, 1])
+                with col_info1:
+                    st.markdown(f"""
+                    **Địa chỉ:** {h.address or 'Đang cập nhật'}  
+                    **Website:** [{h.website or 'Chưa có website'}]({h.website if h.website and h.website.startswith('http') else 'https://' + (h.website or '')})  
+                    **Hotline chính:** `{h.phone_main or '—'}`  ·  **Review:** {h.rating or '—'}⭐ ({h.review_count or 0} reviews)
+                    """)
+                
+                with col_info2:
+                    verify_single_btn = st.button(f"🔍 Scan Mail KS này", key=f"verify_h_{h.id}", help="Kiểm tra máy chủ mail và xác thực trạng thái sống của các email thuộc KS này")
+                    if verify_single_btn:
+                        from extractor.email_verifier import verify_email
+                        v_count = 0
+                        for c in contacts:
+                            if c.email:
+                                res = verify_email(c.email)
+                                c.verify_status = res.status
+                                c.confidence = res.confidence
+                                if res.can_send:
+                                    v_count += 1
+                        session.commit()
+                        st.success(f"✅ Đã scan {len(contacts)} email: {v_count} email hoạt động tốt!")
+                        st.rerun()
+
+                # Bảng chi tiết danh bạ các sếp của KS này
+                contact_rows = []
+                for c in contacts:
+                    status_badge = "✅ VALID (Sống 100%)" if c.verify_status == "VALID" else ("⚠️ LIKELY" if c.verify_status == "LIKELY" else "❌ INVALID")
+                    contact_rows.append({
+                        "Chức danh / Vai trò": c.title or "—",
+                        "Địa chỉ Email": c.email or "—",
+                        "Số điện thoại": c.phone or h.phone_main or "—",
+                        "Trạng thái Email": status_badge,
+                        "Điểm ưu tiên": f"{c.confidence or 0}đ",
+                    })
+                if contact_rows:
+                    st.table(contact_rows)
+
     else:
-        # Filter
-        fc1, fc2 = st.columns(2)
-        city_filter = fc1.multiselect("Lọc thành phố", options=df_contacts["Thành phố"].unique().tolist())
-        title_filter = fc2.text_input("Tìm chức vụ", placeholder="Marketing, GM, Sales...")
+        # Chế độ xem bảng phẳng tổng hợp
+        df_contacts = get_contacts_df()
+        if df_contacts.empty:
+            st.info("Chưa có contact trong kho.")
+        else:
+            fc1, fc2 = st.columns(2)
+            city_filter = fc1.multiselect("Lọc thành phố", options=df_contacts["Thành phố"].unique().tolist())
+            title_filter = fc2.text_input("Tìm chức vụ", placeholder="Marketing, GM, Sales...")
 
-        filtered = df_contacts.copy()
-        if city_filter:
-            filtered = filtered[filtered["Thành phố"].isin(city_filter)]
-        if title_filter:
-            filtered = filtered[filtered["Chức vụ"].str.contains(title_filter, case=False, na=False)]
+            filtered = df_contacts.copy()
+            if city_filter:
+                filtered = filtered[filtered["Thành phố"].isin(city_filter)]
+            if title_filter:
+                filtered = filtered[filtered["Chức vụ"].str.contains(title_filter, case=False, na=False)]
 
-        st.markdown(f"**{len(filtered)}** contacts tìm thấy")
-        st.dataframe(filtered.drop(columns=["ID"]), use_container_width=True, hide_index=True)
+            st.markdown(f"**{len(filtered)}** contacts tìm thấy")
+            st.dataframe(filtered.drop(columns=["ID"]), use_container_width=True, hide_index=True)
 
-        # Thêm contact thủ công
+    session.close()
+
+    # Thêm contact thủ công & Export
+    st.markdown("---")
+    col_exp1, col_exp2 = st.columns([1, 1])
+    
+    with col_exp1:
         with st.expander("➕ Thêm Contact Thủ Công"):
             session_h = get_session()
             hotel_list = session_h.query(Hotel).order_by(Hotel.name).all()
@@ -1514,7 +1598,7 @@ with tab2:
                             hotel_id=hotel_map[selected_hotel],
                             name=c_name, title=c_title, email=c_email,
                             phone=c_phone, linkedin_url=c_linkedin,
-                            source="manual", confidence=80,
+                            source="manual", confidence=95, verify_status="LIKELY"
                         ))
                         session.commit()
                         session.close()
@@ -1523,15 +1607,18 @@ with tab2:
                     else:
                         st.error("Email là bắt buộc!")
 
-        # Export contacts
-        buf2 = io.BytesIO()
-        df_contacts.to_excel(buf2, index=False, engine="openpyxl")
-        st.download_button(
-            "📥 Export Contacts Excel",
-            data=buf2.getvalue(),
-            file_name=f"contacts_{datetime.now().strftime('%Y%m%d')}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        )
+    with col_exp2:
+        df_contacts_all = get_contacts_df()
+        if not df_contacts_all.empty:
+            buf2 = io.BytesIO()
+            df_contacts_all.to_excel(buf2, index=False, engine="openpyxl")
+            st.download_button(
+                "📥 Export Toàn Bộ Danh Bạ Ra Excel",
+                data=buf2.getvalue(),
+                file_name=f"danh_ba_khach_san_{datetime.now().strftime('%Y%m%d')}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True
+            )
 
 
 # ─────────────────────────────────────────────────────────────
