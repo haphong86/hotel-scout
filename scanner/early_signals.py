@@ -408,3 +408,7 @@ def scan_early_signals(city: str) -> List[Dict]:
     result = deduplicate_by_name(all_signals)
     print(f"\n  ✅ Tổng: {len(result)} tín hiệu KS sắp mở tại {city}")
     return result
+
+
+# Alias cho module khác gọi tiện lợi
+scrape_recruitment_signals = scrape_hotel_job_postings

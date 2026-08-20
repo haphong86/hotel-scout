@@ -643,7 +643,7 @@ with tab_auto:
         saved_hotels = 0
         from scanner.overpass_scanner import scan_city_osm
         from scanner.google_maps_scraper import search_google_maps
-        from scanner.early_signals import scrape_booking_opening_soon, scrape_recruitment_signals
+        from scanner.early_signals import scrape_booking_opening_soon, scrape_hotel_job_postings
 
         session = get_session()
         target_cities = selected_cities if selected_cities else ["Đà Nẵng", "Hội An"]
@@ -665,7 +665,7 @@ with tab_auto:
                 add_log(f"    ↳ Booking (Mới mở / Sắp mở): Tìm thấy {len(b_soon)} lead nóng.")
 
                 # 4. Tin tuyển dụng GM/Marketing (Hoteljob, TopCV)
-                jobs = scrape_recruitment_signals(city)
+                jobs = scrape_hotel_job_postings(city)
                 add_log(f"    ↳ Tuyển dụng GM/MKT (Hoteljob/TopCV): Tìm thấy {len(jobs)} tín hiệu.")
 
                 all_found = osm + gmaps + b_soon + jobs
@@ -990,8 +990,8 @@ with tab1:
 
                 # Nguồn 4: Tin tuyển dụng GM/MKT (Hoteljob, TopCV, VietnamWorks)
                 try:
-                    from scanner.early_signals import scrape_recruitment_signals
-                    jobs = scrape_recruitment_signals(city)
+                    from scanner.early_signals import scrape_hotel_job_postings
+                    jobs = scrape_hotel_job_postings(city)
                     city_hotels.extend(jobs)
                     logs.append(f"  ✅ [4/4] Tuyển dụng GM/MKT: {len(jobs)} tín hiệu")
                 except Exception as e:
