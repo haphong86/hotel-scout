@@ -448,14 +448,30 @@ def get_stats() -> dict:
         session.close()
 
 
+def get_app_version() -> str:
+    """Lấy số phiên bản và mã commit mới nhất của hệ thống"""
+    try:
+        import subprocess
+        git_hash = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], stderr=subprocess.DEVNULL).decode().strip()
+        git_date = subprocess.check_output(["git", "log", "-1", "--format=%cd", "--date=format:%d/%m %H:%M"], stderr=subprocess.DEVNULL).decode().strip()
+        return f"v2.6.0 • #{git_hash} ({git_date})"
+    except Exception:
+        return "v2.6.0 (Railway Live)"
+
+CURRENT_VERSION = get_app_version()
+
+
 # ── SIDEBAR ─────────────────────────────────────────────────
 with st.sidebar:
     # Brand header
-    st.markdown("""
+    st.markdown(f"""
     <div class="sidebar-brand">
       <div class="brand-name">Hà Phong</div>
       <div style="font-size:10px;letter-spacing:2px;color:#c9a96e;margin-top:2px;">VISUALS</div>
       <div style="font-size:8px;letter-spacing:2px;color:#444;margin-top:8px;text-transform:uppercase;">Hotel Scout System</div>
+      <div style="font-size:10px;color:#c9a96e;background:#18140c;border:1px solid #3d311d;border-radius:4px;padding:4px 8px;margin-top:10px;text-align:center;font-weight:600;letter-spacing:0.5px;">
+        ⚡ BẢN {CURRENT_VERSION}
+      </div>
     </div>
     """, unsafe_allow_html=True)
 
