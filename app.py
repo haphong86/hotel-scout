@@ -726,7 +726,7 @@ with tab_auto:
             .all()
         )
 
-        # BỘ LỌC ĐẶC CÁCH: CHỈ CHO PHÉP EMAIL NGƯỜI CÓ QUYỀN QUYẾT ĐỊNH (GM, DOSM, SM, MARKETING, SALES)
+        # BỘ LỌC ĐẶC CÁCH: GỬI ĐẾN TẤT CẢ EMAIL LÃNH ĐẠO CỦA KHÁCH SẠN (GM, DOSM, SM, MARKETING, SALES)
         # LOẠI BỎ 100% CÁC HÒM THƯ TIẾP NHẬN CHUNG (INFO, RESERVATION, BOOKING, CONTACT, RECEPTION...)
         GENERIC_DISALLOWED = {
             "info", "reservation", "reservations", "booking", "bookings",
@@ -734,15 +734,11 @@ with tab_auto:
             "enquiry", "enquiries", "admin", "office", "fnb", "spa", "restaurant"
         }
 
-        seen_hotel_ids = set()
         seen_emails = set()
         pending = []
         for c in raw_pending:
             h = c.hotel
-            if not h or h.id in seen_hotel_ids:
-                continue
-            # Nếu KS này đã từng gửi email trước đây rồi -> Bỏ qua, lấy KS khác
-            if h.status in ["Đã liên hệ", "Đang liên hệ"] or (h.email_logs and len(h.email_logs) > 0):
+            if not h:
                 continue
 
             c_email = c.email.lower().strip()
@@ -758,7 +754,6 @@ with tab_auto:
             if is_blacklisted_domain(dom):
                 continue
 
-            seen_hotel_ids.add(h.id)
             seen_emails.add(c_email)
             pending.append(c)
             if len(pending) >= auto_email_limit:

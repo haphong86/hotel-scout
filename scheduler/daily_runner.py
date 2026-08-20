@@ -146,7 +146,6 @@ def run_daily_autopilot_job():
         "almanity", "allegro", "belhamy", "nam an", "tia wellness", "la siesta", "premier village"
     }
 
-    seen_hotel_ids = set()
     seen_emails = set()
     sent_count = 0
 
@@ -161,9 +160,7 @@ def run_daily_autopilot_job():
             break
 
         h = c.hotel
-        if not h or h.id in seen_hotel_ids:
-            continue
-        if h.status in ["Đã liên hệ", "Đang liên hệ"] or (h.email_logs and len(h.email_logs) > 0):
+        if not h:
             continue
 
         c_email = c.email.lower().strip()
@@ -183,7 +180,6 @@ def run_daily_autopilot_job():
         if not mx:
             continue
 
-        seen_hotel_ids.add(h.id)
         seen_emails.add(c_email)
 
         h = c.hotel
