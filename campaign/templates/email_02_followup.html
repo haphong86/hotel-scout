@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ subject }}</title>
+<style>
+  body { font-family: 'Helvetica Neue', Arial, sans-serif; margin: 0; background: #f2ede8; color: #333; }
+  .wrapper { max-width: 600px; margin: 30px auto; background: #fff; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,.10); }
+
+  /* Hero */
+  .hero { background: #0d0d0d; padding: 32px 40px 24px; text-align: center; }
+  .brand-name { font-size: 11px; letter-spacing: 5px; color: #c9a96e; text-transform: uppercase; margin-bottom: 6px; }
+  .brand-sub  { font-size: 17px; font-weight: 300; letter-spacing: 3px; color: #f0ebe3; text-transform: uppercase; }
+  .hero-tagline { color: #666; font-size: 11px; letter-spacing: 1.5px; margin-top: 8px; }
+
+  /* Body */
+  .body { padding: 36px 40px 30px; }
+  .body p { line-height: 1.85; color: #444; margin: 0 0 16px; font-size: 15px; }
+  strong { color: #222; }
+
+  /* Visual Highlight Box */
+  .visual-box {
+    background: #faf7f2;
+    border: 1px solid #e8e2d8;
+    border-left: 3px solid #c9a96e;
+    border-radius: 2px;
+    padding: 20px 24px;
+    margin: 24px 0;
+  }
+  .visual-box h3 { margin: 0 0 12px; color: #1a1a1a; font-size: 15px; text-transform: uppercase; letter-spacing: 1px; }
+  .visual-list { color: #555; font-size: 14px; line-height: 1.9; margin: 0; padding-left: 18px; }
+  .visual-list b { color: #222; }
+
+  /* CTA */
+  .cta { text-align: center; margin: 30px 0 10px; }
+  .btn {
+    display: inline-block; background: #c9a96e; color: #0d0d0d !important;
+    padding: 13px 36px; text-decoration: none; font-size: 11px;
+    letter-spacing: 2px; text-transform: uppercase; border-radius: 1px;
+    font-weight: 600;
+  }
+
+  /* Sig */
+  .sig { margin-top: 32px; padding-top: 20px; border-top: 1px solid #eee; }
+  .sig p { margin: 3px 0; font-size: 14px; color: #555; }
+
+  /* Footer */
+  .footer { background: #f0ede8; padding: 22px 40px; text-align: center; border-top: 1px solid #e0dbd4; }
+  .footer p { font-size: 11px; color: #999; margin: 4px 0; line-height: 1.7; }
+  .footer a { color: #999; text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- Header -->
+  <div class="hero">
+    <div class="brand-name">Hà Phong Visuals</div>
+    <div class="brand-sub">Follow-up · {{ hotel_name }}</div>
+    <div class="hero-tagline">Architectural & Hotel Visual Identity</div>
+  </div>
+
+  <!-- Body -->
+  <div class="body">
+    <p>Xin chào {% if contact_name %}{{ contact_name }}{% else %}Anh/Chị{% endif %},</p>
+
+    <p>
+      Hôm trước Phong có gửi email giới thiệu về giải pháp chụp ảnh và nâng cấp visual
+      cho <strong>{{ hotel_name }}</strong>. Tôi hiểu quản lý khách sạn luôn có rất nhiều việc cần ưu tiên,
+      nên xin phép gửi thêm góc nhìn ngắn về sự khác biệt của một bộ ảnh chuyên nghiệp.
+    </p>
+
+    <div class="visual-box">
+      <h3>✨ Giá trị của visual chuyên nghiệp trong 1.000 khách sạn</h3>
+      <ul class="visual-list">
+        <li><b>Bắt mắt ngay từ thumbnail:</b> Màu sắc & ánh sáng chuẩn giúp ảnh đại diện của khách sạn nổi bật khi khách lướt danh sách trên Booking/Agoda.</li>
+        <li><b>Kể trọn vẹn câu chuyện không gian:</b> Tôn vinh góc kiến trúc đắt giá, độ thoáng phòng, tiện ích và không gian trải nghiệm thực tế.</li>
+        <li><b>Kích thích hành vi đặt phòng:</b> Khách hàng dễ dàng hình dung kỳ nghỉ và quyết định chốt phòng nhanh hơn mà không cần đắn đo so sánh giá.</li>
+      </ul>
+    </div>
+
+    <p>
+      Chúng tôi có quy trình chụp gọn gàng (1–2 ngày) không làm ảnh hưởng đến hoạt động đón khách,
+      đồng thời bàn giao bộ ảnh hoàn thiện chuẩn visual đa nền tảng (Website, OTA, Social Media) trong vòng <strong>72 giờ</strong>.
+    </p>
+
+    <div class="cta">
+      <a href="https://haphong.com" target="_blank" class="btn">Xem Bộ Sưu Tập Ảnh →</a>
+    </div>
+
+    <p style="text-align:center;font-size:13px;color:#888;margin-top:12px;">
+      Anh/Chị có thể reply email này hoặc nhắn Zalo: <strong>0383 305 909</strong> để nhận tư vấn góc chụp đẹp nhất cho {{ hotel_name }}.
+    </p>
+
+    <div class="sig">
+      <p>Trân trọng,</p>
+      <p><strong>Phong Đặng</strong></p>
+      <p style="color:#888;font-size:13px;">Lead Photographer · Hà Phong Visuals</p>
+      <p style="color:#c9a96e;font-size:13px;letter-spacing:1px;">haphong.com · sales@haphong.com</p>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <p><strong>Hà Phong Visuals</strong> · Đà Nẵng · Hội An · Miền Trung</p>
+    <p>📞 +84 383 305 909 &nbsp;|&nbsp; ✉️ sales@haphong.com &nbsp;|&nbsp; 🌐 <a href="https://haphong.com">haphong.com</a></p>
+    <p style="margin-top:10px;font-size:10px;">
+      <a href="mailto:sales@haphong.com?subject=Unsubscribe">Hủy nhận email từ Hà Phong Visuals</a>
+    </p>
+  </div>
+
+</div>
+</body>
+</html>
