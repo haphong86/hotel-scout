@@ -915,9 +915,9 @@ with tab1:
             </div>
             <div>
               <div style="font-size:9px;color:#666;letter-spacing:1px;text-transform:uppercase">
-                Nguồn</div>
-              <div style="color:#f0ebe3;font-size:13px;margin-top:2px">
-                OpenStreetMap · Booking.com</div>
+                Nguồn quét</div>
+              <div style="color:#f0ebe3;font-size:12px;margin-top:2px">
+                🌐 Đa Kênh (OSM · Google Maps · Booking · Tuyển dụng)</div>
             </div>
             <div>
               <div style="font-size:9px;color:#666;letter-spacing:1px;text-transform:uppercase">
@@ -934,7 +934,7 @@ with tab1:
             "🚀  QUÉT NGAY",
             type="primary",
             use_container_width=True,
-            help="Quét KS mới từ OpenStreetMap và Booking.com"
+            help="Quét KS mới từ OSM, Google Maps, Booking và Tin tuyển dụng"
         )
 
     st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
@@ -946,15 +946,15 @@ with tab1:
         else:
             import time as _time
             t_start   = _time.time()
-            progress  = st.progress(0, text="Khởi động scanner...")
+            progress  = st.progress(0, text="Khởi động multi-source scanner...")
             log_area  = st.empty()
             logs      = []
             all_found = []
             total     = len(selected_cities)
 
             for i, city in enumerate(selected_cities):
-                progress.progress(i / total, text=f"🔍 Đang quét: {city}...")
-                logs.append(f"▶ {city}")
+                progress.progress(i / total, text=f"🔍 Đang quét đa kênh: {city}...")
+                logs.append(f"▶ BẮT ĐẦU QUÉT: {city.upper()}")
                 log_area.code("\n".join(logs[-20:]))
                 city_hotels = []
 
@@ -963,34 +963,43 @@ with tab1:
                     from scanner.overpass_scanner import scan_city_osm
                     osm = scan_city_osm(city, radius_km=20)
                     city_hotels.extend(osm)
-                    logs.append(f"  ✅ OpenStreetMap: {len(osm)} KS")
+                    logs.append(f"  ✅ [1/4] OpenStreetMap: Tìm thấy {len(osm)} cơ sở")
                 except Exception as e:
                     logs.append(f"  ⚠️ OSM lỗi: {str(e)[:60]}")
                 log_area.code("\n".join(logs[-20:]))
 
-                # Nguồn 2: Booking.com
+                # Nguồn 2: Google Maps & Google Search
                 try:
-                    from scanner.playwright_scanner import scrape_booking_new_playwright
-                    booking = scrape_booking_new_playwright(city, max_results=30)
-                    city_hotels.extend(booking)
-                    logs.append(f"  ✅ Booking.com: {len(booking)} KS mới")
+                    from scanner.google_maps_scraper import search_google_maps
+                    gmaps = search_google_maps(f"khách sạn mới {city}", city)
+                    city_hotels.extend(gmaps)
+                    logs.append(f"  ✅ [2/4] Google Maps & Search: Tìm thấy {len(gmaps)} KS")
+                except Exception as e:
+                    logs.append(f"  ⚠️ Google Maps lỗi: {str(e)[:60]}")
+                log_area.code("\n".join(logs[-20:]))
+
+                # Nguồn 3: Booking.com Opening Soon
+                try:
+                    from scanner.early_signals import scrape_booking_opening_soon
+                    b_soon = scrape_booking_opening_soon(city)
+                    city_hotels.extend(b_soon)
+                    logs.append(f"  ✅ [3/4] Booking (Sắp mở/Mới mở): {len(b_soon)} lead nóng")
                 except Exception as e:
                     logs.append(f"  ⚠️ Booking lỗi: {str(e)[:60]}")
                 log_area.code("\n".join(logs[-20:]))
 
-                # Nguồn 3: Google Maps (nếu có key)
-                if os.getenv("GOOGLE_MAPS_API_KEY"):
-                    try:
-                        from scanner.google_maps import scan_city as gm_scan
-                        gm = gm_scan(city, max_review_count=filter_max_reviews)
-                        city_hotels.extend(gm)
-                        logs.append(f"  ✅ Google Maps: {len(gm)} KS")
-                    except Exception as e:
-                        logs.append(f"  ⚠️ Google Maps lỗi: {str(e)[:60]}")
-                    log_area.code("\n".join(logs[-20:]))
+                # Nguồn 4: Tin tuyển dụng GM/MKT (Hoteljob, TopCV, VietnamWorks)
+                try:
+                    from scanner.early_signals import scrape_recruitment_signals
+                    jobs = scrape_recruitment_signals(city)
+                    city_hotels.extend(jobs)
+                    logs.append(f"  ✅ [4/4] Tuyển dụng GM/MKT: {len(jobs)} tín hiệu")
+                except Exception as e:
+                    logs.append(f"  ⚠️ Tuyển dụng lỗi: {str(e)[:60]}")
+                log_area.code("\n".join(logs[-20:]))
 
                 all_found.extend(city_hotels)
-                logs.append(f"  → {city}: {len(city_hotels)} KS · Cộng dồn: {len(all_found)}\n")
+                logs.append(f"  ↳ Tổng {city}: {len(city_hotels)} KS · Cộng dồn kho: {len(all_found)}\n")
                 log_area.code("\n".join(logs[-20:]))
 
             progress.progress(1.0, text="✅ Hoàn tất!")
