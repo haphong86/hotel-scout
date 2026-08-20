@@ -563,29 +563,34 @@ with tab_auto:
     </div>
     """, unsafe_allow_html=True)
 
-    # Tổng hợp tất cả các địa điểm du lịch & khách sạn trên toàn quốc
-    all_hotspot_cities = []
-    for reg_cities in VIETNAM_REGIONS.values():
-        for c in reg_cities:
-            if c not in all_hotspot_cities:
-                all_hotspot_cities.append(c)
+    # Đồng bộ khu vực quét trực tiếp từ Sidebar điều khiển chung
+    target_cities = selected_cities if selected_cities else ["Đà Nẵng", "Hội An"]
+    cities_display = " · ".join(target_cities) if len(target_cities) <= 6 else f"{' · '.join(target_cities[:6])} và +{len(target_cities)-6} địa điểm khác"
 
     col_cfg1, col_cfg2, col_btn = st.columns([3, 2, 2])
 
     with col_cfg1:
-        auto_cities = st.multiselect(
-            "Địa điểm & Thành phố quét (50+ Thủ Phủ Khách Sạn & Resort):",
-            options=all_hotspot_cities,
-            default=["Đà Nẵng", "Hội An", "Quảng Nam", "Huế", "Lăng Cô", "Quy Nhơn", "Tuy Hòa", "Nha Trang", "Cam Ranh", "Phan Thiết", "Đà Lạt", "Phú Quốc"],
-            help="Hệ thống sẽ quét khách sạn mới theo danh sách thành phố anh chọn."
-        )
+        st.markdown(f"""
+        <div style="background:#141414; border:1px solid #262626; border-left:3px solid #c9a96e;
+                    padding:12px 16px; border-radius:3px;">
+          <div style="font-size:9px; letter-spacing:2px; color:#c9a96e; text-transform:uppercase;">
+            ĐỊA ĐIỂM QUÉT (ĐỒNG BỘ TỪ CỘT TRÁI)
+          </div>
+          <div style="font-size:13px; color:#f0ebe3; margin-top:4px; font-weight:500;">
+            📍 {selected_region}
+          </div>
+          <div style="font-size:11px; color:#888; margin-top:2px;">
+            {cities_display} ({len(target_cities)} thành phố)
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
 
     with col_cfg2:
         auto_email_limit = st.slider("Số email gửi trong lượt này:", min_value=5, max_value=30, value=20, step=5)
         auto_telegram = st.checkbox("Bắn báo cáo Telegram sau khi xong", value=True)
 
     with col_btn:
-        st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+        st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
         start_autopilot_btn = st.button(
             "⚡ START AUTOPILOT",
             type="primary",
