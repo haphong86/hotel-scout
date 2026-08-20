@@ -24,23 +24,30 @@ GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY", "")
 # ── Hunter.io API (tìm email theo domain) ─────────────────
 HUNTER_API_KEY = os.getenv("HUNTER_API_KEY", "")
 
-# ── Khu vực Việt Nam ──────────────────────────────────────
+# ── Khu vực Việt Nam Toàn Diện ───────────────────────────
 VIETNAM_REGIONS = {
-    "🏖️ Miền Trung (Ưu tiên)": [
-        "Đà Nẵng", "Hội An", "Quảng Nam", "Huế", "Thừa Thiên Huế",
-        "Quảng Bình", "Quảng Trị", "Quảng Ngãi", "Bình Định", "Phú Yên",
-        "Khánh Hòa", "Nha Trang"
+    "🏖️ Miền Trung & Nam Trung Bộ (Ưu tiên số 1)": [
+        "Đà Nẵng", "Hội An", "Quảng Nam", "Huế", "Lăng Cô",
+        "Quy Nhơn", "Bình Định", "Tuy Hòa", "Phú Yên",
+        "Nha Trang", "Cam Ranh", "Khánh Hòa", "Vĩnh Hy", "Phan Rang", "Ninh Thuận",
+        "Phan Thiết", "Mũi Né", "Lagi", "Phú Quý", "Bình Thuận",
+        "Quảng Bình", "Đồng Hới", "Phong Nha", "Quảng Trị", "Quảng Ngãi", "Lý Sơn"
     ],
-    "🌆 Miền Nam": [
-        "TP. Hồ Chí Minh", "Bà Rịa - Vũng Tàu", "Phú Quốc", "Kiên Giang",
-        "Bình Thuận", "Phan Thiết", "Mũi Né", "Cần Thơ", "Đồng Nai", "Bình Dương"
+    "🏔️ Tây Nguyên & Nghỉ Dưỡng Núi (Villa / Homestay)": [
+        "Đà Lạt", "Bảo Lộc", "Lâm Đồng", "Măng Đen", "Kon Tum",
+        "Buôn Ma Thuột", "Đắk Lắk", "Gia Lai", "Pleiku", "Đắk Nông"
     ],
-    "🏛️ Miền Bắc": [
-        "Hà Nội", "Hạ Long", "Quảng Ninh", "Sapa", "Lào Cai",
-        "Ninh Bình", "Hải Phòng", "Nam Định", "Thanh Hóa"
+    "🏝️ Miền Nam & Hải Đảo (Resort Cao Cấp)": [
+        "Phú Quốc", "Kiên Giang", "Rạch Giá", "Hà Tiên", "Nam Du",
+        "Vũng Tàu", "Hồ Tràm", "Long Hải", "Côn Đảo", "Bà Rịa - Vũng Tàu",
+        "TP. Hồ Chí Minh", "Cần Thơ", "Bến Tre", "Châu Đốc", "Tây Ninh"
     ],
-    "🏔️ Tây Nguyên": [
-        "Đà Lạt", "Lâm Đồng", "Buôn Ma Thuột", "Đắk Lắk", "Kon Tum", "Gia Lai"
+    "🏛️ Miền Bắc & Vịnh / Kỳ Quan": [
+        "Sa Pa", "Lào Cai", "Y Tý", "Hà Giang", "Đồng Văn", "Mù Cang Chải", "Yên Bái",
+        "Hạ Long", "Bãi Cháy", "Cát Bà", "Vân Đồn", "Cô Tô", "Quảng Ninh",
+        "Ninh Bình", "Tràng An", "Tam Cốc", "Hà Nội", "Ba Vì", "Sóc Sơn",
+        "Mai Châu", "Hòa Bình", "Pù Luông", "Mộc Châu", "Sơn La",
+        "Hải Phòng", "Đồ Sơn", "Sầm Sơn", "Thanh Hóa", "Cửa Lò", "Nghệ An"
     ],
 }
 

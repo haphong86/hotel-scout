@@ -563,13 +563,21 @@ with tab_auto:
     </div>
     """, unsafe_allow_html=True)
 
-    col_cfg1, col_cfg2, col_btn = st.columns([2, 2, 2])
+    # Tổng hợp tất cả các địa điểm du lịch & khách sạn trên toàn quốc
+    all_hotspot_cities = []
+    for reg_cities in VIETNAM_REGIONS.values():
+        for c in reg_cities:
+            if c not in all_hotspot_cities:
+                all_hotspot_cities.append(c)
+
+    col_cfg1, col_cfg2, col_btn = st.columns([3, 2, 2])
 
     with col_cfg1:
         auto_cities = st.multiselect(
-            "Thành phố ưu tiên quét:",
-            options=["Đà Nẵng", "Hội An", "Quảng Nam", "Huế", "Quy Nhơn", "Phú Yên", "Nha Trang", "Đà Lạt", "Phú Quốc"],
-            default=["Đà Nẵng", "Hội An", "Quảng Nam"],
+            "Địa điểm & Thành phố quét (50+ Thủ Phủ Khách Sạn & Resort):",
+            options=all_hotspot_cities,
+            default=["Đà Nẵng", "Hội An", "Quảng Nam", "Huế", "Lăng Cô", "Quy Nhơn", "Tuy Hòa", "Nha Trang", "Cam Ranh", "Phan Thiết", "Đà Lạt", "Phú Quốc"],
+            help="Hệ thống sẽ quét khách sạn mới theo danh sách thành phố anh chọn."
         )
 
     with col_cfg2:
