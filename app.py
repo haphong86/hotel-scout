@@ -644,7 +644,7 @@ with tab_auto:
         from scanner.overpass_scanner import scan_city_osm
 
         session = get_session()
-        target_cities = auto_cities if auto_cities else ["Đà Nẵng", "Hội An"]
+        target_cities = selected_cities if selected_cities else ["Đà Nẵng", "Hội An"]
 
         for idx, city in enumerate(target_cities):
             try:
@@ -680,7 +680,7 @@ with tab_auto:
 
         from pipeline import run_pipeline
         pipe_res = run_pipeline(
-            cities=auto_cities if auto_cities else None,
+            cities=target_cities if target_cities else None,
             limit=25,
             log_fn=add_log,
         )
