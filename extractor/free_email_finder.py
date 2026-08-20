@@ -85,9 +85,9 @@ def crawl_website_emails(website: str) -> List[Dict]:
     ]
 
     found_emails = set()
-    for url in pages_to_check[:4]:  # Kiểm tra tối đa 4 trang
+    for url in pages_to_check[:3]:  # Kiểm tra tối đa 3 trang chính
         try:
-            resp = httpx.get(url, headers=HEADERS, timeout=10, follow_redirects=True)
+            resp = httpx.get(url, headers=HEADERS, timeout=3.5, follow_redirects=True)
             if resp.status_code != 200:
                 continue
 
