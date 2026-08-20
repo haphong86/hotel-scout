@@ -718,6 +718,13 @@ with tab_auto:
                 c_dom = c.email.split("@")[-1].lower().strip()
                 h_name_lower = h.name.lower()
 
+                # BẢO VỆ 100%: Kiểm tra trực tiếp máy chủ Mail Server sống trước khi bấm gửi
+                from extractor.email_verifier import check_mx
+                mx_host = check_mx(c_dom)
+                if not mx_host or is_blacklisted_domain(c_dom):
+                    add_log(f"  ⏭️ Bỏ qua {c.email} (Không tìm thấy máy chủ mail hợp lệ)")
+                    continue
+
                 # Tự động phát hiện khách sạn Quốc tế / Quản lý nước ngoài
                 is_intl = any(k in h_name_lower for k in intl_keywords) or (c_dom.endswith(".com") and not c_dom.endswith(".vn") and h.stars and h.stars >= 4)
 

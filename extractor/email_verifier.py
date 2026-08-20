@@ -68,19 +68,32 @@ class VerifyResult:
 # ═══════════════════════════════════════════════════════════════
 
 def check_mx(domain: str) -> Optional[str]:
-    """Trả về tên mail server nếu domain có MX record, None nếu không"""
+    """
+    Kiểm tra NGHIÊM NGẶT máy chủ MX của domain bằng Cloudflare/Google DNS.
+    Trả về tên mail server nếu domain có MX record hoạt động thật, None nếu không.
+    """
+    if not domain or "." not in domain:
+        return None
+
+    domain = domain.lower().strip()
     if domain in _mx_cache:
         return _mx_cache[domain]
 
     mx = None
     if HAS_DNS:
+        resolver = dns.resolver.Resolver()
+        resolver.nameservers = ["1.1.1.1", "8.8.8.8", "8.8.4.4"]  # Dùng DNS quốc tế siêu nhanh
+        resolver.timeout = 3.0
+        resolver.lifetime = 4.0
+
         try:
-            records = dns.resolver.resolve(domain, "MX", lifetime=5)
-            mx = str(sorted(records, key=lambda r: r.preference)[0].exchange).rstrip(".")
+            records = resolver.resolve(domain, "MX")
+            if records:
+                sorted_records = sorted(records, key=lambda r: r.preference)
+                mx = str(sorted_records[0].exchange).rstrip(".").lower()
         except Exception:
             mx = None
     else:
-        # Fallback nếu không có dnspython
         import socket
         try:
             socket.getaddrinfo(domain, 25)
