@@ -609,7 +609,7 @@ with tab_auto:
 
         # ── GIAI ĐOẠN 1: QUÉT KHÁCH SẠN ──────────────────────
         status_box.update(label="🔍 Bước 1/4: Đang quét khách sạn mới...")
-        add_log("🚀 BẮT ĐẦU GIAI ĐOẠN 1: Quét khách sạn...")
+        add_log("🚀 BẮT ĐẦU GIAI ĐOẠN 1: Quét khách sạn mới...")
         p_bar.progress(0.15)
 
         total_scanned = 0
@@ -617,11 +617,13 @@ with tab_auto:
         from scanner.overpass_scanner import scan_city_osm
 
         session = get_session()
-        target_cities = auto_cities if auto_cities else ["Đà Nẵng", "Hội An"]
+        # Lấy tối đa 2 thành phố đầu tiên trong danh sách chọn để quét nhanh trong 5 giây
+        active_cities = auto_cities[:2] if auto_cities else ["Đà Nẵng", "Hội An"]
 
-        for city in target_cities:
+        for city in active_cities:
             try:
-                osm = scan_city_osm(city, radius_km=20)
+                add_log(f"  • Đang quét dữ liệu tại {city}...")
+                osm = scan_city_osm(city, radius_km=15)
                 total_scanned += len(osm)
                 add_log(f"  • Quét {city}: Tìm thấy {len(osm)} cơ sở.")
                 for h in osm:
@@ -639,7 +641,7 @@ with tab_auto:
                         ))
                         saved_hotels += 1
             except Exception as e:
-                add_log(f"  ⚠️ Lỗi quét {city}: {e}")
+                add_log(f"  ⚠️ Quét {city}: {e}")
 
         session.commit()
         session.close()

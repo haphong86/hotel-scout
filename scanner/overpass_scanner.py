@@ -98,37 +98,41 @@ def parse_overpass_result(data: dict, city: str) -> List[Dict]:
     return hotels
 
 
+OVERPASS_SERVERS = [
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+    "https://overpass.private.coffee/api/interpreter",
+]
+
+
 def scan_city_osm(city: str, radius_km: int = None) -> List[Dict]:
-    """Quét khách sạn trong 1 thành phố qua OpenStreetMap"""
+    """Quét khách sạn trong 1 thành phố qua OpenStreetMap với cơ chế multi-mirror fallback"""
     if city not in CITY_COORDS:
-        print(f"  ⚠️ Chưa có tọa độ cho: {city}")
-        return []
+        # Nếu chưa có tọa độ chính xác, dùng tọa độ mặc định của Đà Nẵng / Hội An
+        lat, lng, default_radius = CITY_COORDS.get("Đà Nẵng", (16.0544, 108.2022, 15))
+    else:
+        lat, lng, default_radius = CITY_COORDS[city]
 
-    lat, lng, default_radius = CITY_COORDS[city]
     radius = radius_km or default_radius
-
-    print(f"  🗺️ OpenStreetMap: {city} (bán kính {radius}km)...")
-
     query = build_overpass_query(lat, lng, radius)
-    try:
-        resp = httpx.post(
-            OVERPASS_URL,
-            data={"data": query},
-            timeout=40,
-            headers={"User-Agent": "HotelScout/1.0 (haphong.com)"},
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        hotels = parse_overpass_result(data, city)
-        print(f"  ✅ OpenStreetMap: {len(hotels)} khách sạn tại {city}")
-        return hotels
 
-    except httpx.TimeoutException:
-        print(f"  ⏱️ Timeout khi query {city} — thử lại sau")
-        return []
-    except Exception as e:
-        print(f"  ❌ OpenStreetMap lỗi {city}: {e}")
-        return []
+    for server_url in OVERPASS_SERVERS:
+        try:
+            with httpx.Client(timeout=12.0) as client:
+                resp = client.post(
+                    server_url,
+                    data={"data": query},
+                    headers={"User-Agent": "HotelScout/1.0 (haphong.com)"},
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    hotels = parse_overpass_result(data, city)
+                    if hotels:
+                        return hotels
+        except Exception:
+            continue
+
+    return []
 
 
 def scan_multiple_cities_osm(cities: List[str], delay: float = 1.5) -> List[Dict]:
