@@ -14,6 +14,27 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 from config import VIETNAM_REGIONS, APP_CONFIG, EMAIL_CONFIG
 from database.models import init_db, get_session, Hotel, Contact, EmailLog, Campaign, ScanLog
+from scheduler.daily_runner import start_scheduler
+
+# Khởi động bộ đếm giờ tự động 09:00 AM chạy ngầm
+start_scheduler()
+
+# ── WEBHOOK TRACKING HANDLER (OPEN & CLICK) ────────────────
+params = st.query_params
+if "track" in params:
+    track_action = params.get("track")
+    log_id_str = params.get("id")
+    if log_id_str and log_id_str.isdigit():
+        log_id_val = int(log_id_str)
+        from campaign.tracking_server import record_email_open, record_email_click
+        if track_action == "open":
+            record_email_open(log_id_val)
+        elif track_action == "click":
+            dest_url = params.get("dest", "https://haphong.com")
+            record_email_click(log_id_val, dest_url)
+            st.markdown(f'<meta http-equiv="refresh" content="0; url={dest_url}" />', unsafe_allow_html=True)
+            st.markdown(f'<p style="color:#c9a96e; text-align:center; margin-top:50px;">Đang chuyển hướng tới <a href="{dest_url}">{dest_url}</a>...</p>', unsafe_allow_html=True)
+            st.stop()
 
 # ── Cấu hình trang ──────────────────────────────────────────
 st.set_page_config(
@@ -750,15 +771,36 @@ with tab_auto:
                     )
                     lang_tag = "🇻🇳 VI"
 
+                # Tạo EmailLog trước để lấy ID phục vụ tracking tức thì
+                elog = EmailLog(
+                    hotel_id=h.id, contact_id=c.id, sequence_num=1,
+                    subject=subj, status="Đang gửi", sent_at=datetime.now()
+                )
+                session.add(elog)
+                session.flush()
+
+                # Cấu hình đường link tracking theo domain Railway hoặc custom domain
+                tracking_domain = os.getenv("RAILWAY_PUBLIC_DOMAIN", "hotel-scout-production.up.railway.app")
+                tracking_base = f"https://{tracking_domain}" if not tracking_domain.startswith("http") else tracking_domain
+
+                # 1. Chèn tracking link khi khách bấm xem portfolio haphong.com
+                click_tracked_url = f"{tracking_base}/?track=click&id={elog.id}&dest=https://haphong.com"
+                body_with_links = body.replace('href="https://haphong.com"', f'href="{click_tracked_url}"')
+
+                # 2. Chèn tracking pixel 1x1 ẩn ở cuối email
+                pixel_tag = f'<img src="{tracking_base}/?track=open&id={elog.id}" width="1" height="1" style="display:none;" />'
+                body_final = body_with_links.replace("</body>", f"{pixel_tag}</body>") if "</body>" in body_with_links else body_with_links + pixel_tag
+
                 add_log(f"  📤 [{idx+1}/{len(pending)}] {lang_tag} Gửi → {c.email} ({h.name[:22]})...")
-                res = send_email(c.email, c.name or "", subj, body)
+                res = send_email(c.email, c.name or "", subj, body_final)
                 if res.get("success"):
                     sent_count += 1
-                    session.add(EmailLog(
-                        hotel_id=h.id, contact_id=c.id, sequence_num=1,
-                        subject=subj, status="Đã gửi", sent_at=datetime.now()
-                    ))
+                    elog.status = "Đã gửi"
                     h.status = "Đã liên hệ"
+                    session.commit()
+                else:
+                    elog.status = "Thất bại"
+                    elog.error_msg = res.get("message", "")
                     session.commit()
                 _t.sleep(1.5)
 
