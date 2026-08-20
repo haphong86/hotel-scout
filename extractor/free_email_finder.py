@@ -25,22 +25,44 @@ HEADERS = {
     "Accept-Language": "vi-VN,vi;q=0.9,en;q=0.8",
 }
 
-# Pattern email theo thứ tự thực tế 99% Khách sạn VN đều có
-# Ưu tiên các hòm thư tiếp nhận chính thức trước để tránh 550 No Such User
+# Pattern email theo thứ tự QUYỀN QUYẾT ĐỊNH CHỤP ẢNH TỪ CAO XUỐNG THẤP:
+# 1. GM (Tổng Giám Đốc)
+# 2. DOSM (Giám Đốc Sales & Marketing)
+# 3. SM (Sales Manager)
+# 4. Marketing (Marketing Manager)
+# 5. Sales (Phòng Kinh Doanh)
+# 6. Info / Reservation (Hòm thư tiếp nhận chính thức - Fallback cuối cùng)
 EMAIL_PATTERNS_RANKED = [
-    # Hòm thư chính thức luôn tồn tại 99%
-    ("info",                "Phòng Quản Lý & Tiếp Nhận",        96),
-    ("reservation",         "Phòng Đặt Phòng & Kinh Doanh",     94),
-    ("reservations",        "Phòng Đặt Phòng & Kinh Doanh",     94),
-    ("booking",             "Phòng Đặt Phòng & Booking",        92),
-    ("bookings",            "Phòng Đặt Phòng & Booking",        92),
-    ("contact",             "Bộ Phận Liên Hệ & CSKH",           90),
-    ("sales",               "Phòng Kinh Doanh (Sales Dept)",    88),
-    ("gm",                  "Tổng Giám Đốc (GM)",               85),
-    ("marketing",           "Phòng Marketing",                  82),
-    ("dosm",                "Director of Sales & Marketing",    80),
-    ("stay",                "Ban Quản Lý Lưu Trú",              78),
-    ("hello",               "Lễ Tân & Đón Tiếp",                75),
+    # ── CẤP 1: TỔNG GIÁM ĐỐC (GM) — QUYẾT ĐỊNH CAO NHẤT ──
+    ("gm",                  "Tổng Giám Đốc (General Manager)",      98),
+    ("generalmanager",      "Tổng Giám Đốc (General Manager)",      96),
+    ("general.manager",     "Tổng Giám Đốc (General Manager)",      96),
+
+    # ── CẤP 2: GIÁM ĐỐC SALES & MARKETING (DOSM) — TRỰC TIẾP DUYỆT NGÂN SÁCH ẢNH ──
+    ("dosm",                "Director of Sales & Marketing (DOSM)",  95),
+    ("dos",                 "Director of Sales",                    94),
+    ("dom",                 "Director of Marketing",                94),
+
+    # ── CẤP 3: SALES MANAGER (SM) ──
+    ("sm",                  "Sales Manager",                        92),
+    ("salesmanager",        "Sales Manager",                        90),
+    ("sales.manager",       "Sales Manager",                        90),
+
+    # ── CẤP 4: PHÒNG MARKETING & TRUYỀN THÔNG ──
+    ("marketing",           "Marketing Manager",                    90),
+    ("marketing.manager",   "Marketing Manager",                    88),
+    ("marcom",              "Marketing & Communications Manager",   88),
+    ("digital",             "Digital Marketing Manager",            86),
+
+    # ── CẤP 5: PHÒNG KINH DOANH (SALES DEPT) ──
+    ("sales",               "Phòng Kinh Doanh (Sales Dept)",        85),
+    ("salesmarketing",      "Sales & Marketing",                    82),
+
+    # ── CẤP 6: HÒM THƯ TIẾP NHẬN CHÍNH THỨC (FALLBACK NẾU KHÔNG CÓ HÒM THƯ CÁ NHÂN) ──
+    ("info",                "Ban Quản Lý & Tiếp Nhận",              75),
+    ("reservation",         "Phòng Đặt Phòng & Kinh Doanh",         72),
+    ("booking",             "Phòng Booking",                        70),
+    ("contact",             "Bộ Phận Liên Hệ",                      68),
 ]
 
 # Chức vụ ưu tiên — người quyết định mua ảnh

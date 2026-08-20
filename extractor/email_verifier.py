@@ -167,12 +167,47 @@ def pattern_score(email: str) -> int:
 # MAIN: Xác minh 1 email (3 lớp)
 # ═══════════════════════════════════════════════════════════════
 
+def check_smtp_mailbox_exists(email: str, mx_host: str) -> Optional[bool]:
+    """
+    Thực hiện SMTP Handshake kiểm tra hòm thư có thực sự tồn tại trên máy chủ không.
+    Trả về:
+      True: Server trả về 250 (Hòm thư tồn tại thật 100%)
+      False: Server trả về 550 / 551 / 553 / User not found (Hòm thư không tồn tại -> LOẠI BỎ)
+      None: Server từ chối probe hoặc timeout -> Giữ lại theo DNS
+    """
+    if not email or not mx_host:
+        return None
+    try:
+        import smtplib
+        server = smtplib.SMTP(timeout=3.0)
+        server.connect(mx_host, 25)
+        server.helo("haphong.com")
+        server.mail("probe@haphong.com")
+        code, msg = server.rcpt(email)
+        try:
+            server.quit()
+        except Exception:
+            pass
+        if code == 250:
+            return True
+        elif code >= 500:
+            return False
+    except Exception:
+        return None
+    return None
+
+
+# ═══════════════════════════════════════════════════════════════
+# MAIN: Xác minh 1 email (4 lớp)
+# ═══════════════════════════════════════════════════════════════
+
 def verify_email(email: str) -> VerifyResult:
     """
-    Xác minh email dùng 3 lớp:
+    Xác minh email dùng 4 lớp:
     1. DNS MX — domain có nhận email không?
-    2. Disify API — kiểm tra disposable, format
-    3. Pattern score — đoán mức độ tin cậy
+    2. SMTP Mailbox Probe — hòm thư có tồn tại thực sự trên server không?
+    3. Disify API — kiểm tra disposable, format
+    4. Pattern score — ưu tiên GM, DOSM, SM, Marketing, Sales
     """
     email = email.lower().strip()
 
@@ -208,43 +243,40 @@ def verify_email(email: str) -> VerifyResult:
         _cache[email] = r
         return r
 
-    # Domain có MX → tiếp tục
+    # ── LỚP 2: SMTP Mailbox Probe (Bắt lỗi 550 No Such User) ──
+    smtp_exists = check_smtp_mailbox_exists(email, mx)
+    if smtp_exists is False:
+        r = VerifyResult(
+            email, "NO_USER", 0,
+            f"Máy chủ {mx} báo lỗi 550: Hòm thư '{email}' không tồn tại",
+            can_send=False
+        )
+        _cache[email] = r
+        return r
 
-    # ── LỚP 2: Disify API ────────────────────────────────────
+    # ── LỚP 3: Disify API ────────────────────────────────────
     disify = disify_check(email)
-    confidence = pattern_score(email)  # Base từ pattern
+    confidence = pattern_score(email)  # Base từ pattern theo thứ bậc quyết định
 
     if disify:
         fmt      = disify.get("format", True)
         dns_ok   = disify.get("dns", True)
         disposable = disify.get("disposable", False)
 
-        if not fmt:
-            r = VerifyResult(email, "INVALID", 0, "Disify: sai format", can_send=False)
+        if not fmt or not dns_ok or disposable:
+            r = VerifyResult(email, "INVALID", 0, "Disify: không hợp lệ", can_send=False)
             _cache[email] = r
             return r
 
-        if not dns_ok:
-            r = VerifyResult(email, "NO_MX", 5,
-                             "Disify: domain không có DNS email", can_send=False)
-            _cache[email] = r
-            return r
+        confidence = min(100, confidence + 10)
 
-        if disposable:
-            r = VerifyResult(email, "INVALID", 0,
-                             "Disify: email tạm thời (disposable)", can_send=False)
-            _cache[email] = r
-            return r
-
-        # Disify xác nhận DNS OK → tăng confidence
-        confidence = min(100, confidence + 15)
-        status  = "LIKELY"
-        reason  = f"✅ DNS OK · MX: {mx} · Pattern: {email.split('@')[0]}"
-
+    if smtp_exists is True:
+        confidence = 100
+        status = "VALID"
+        reason = f"✅ Xác thực 100% (SMTP 250 OK) · MX: {mx}"
     else:
-        # Disify không trả lời (timeout) → dùng DNS + Pattern
         status = "LIKELY"
-        reason = f"DNS MX OK ({mx}) · Disify timeout · Pattern score: {confidence}"
+        reason = f"DNS MX OK ({mx}) · Pattern Score: {confidence}"
 
     r = VerifyResult(email, status, confidence, reason, can_send=True)
     _cache[email] = r
