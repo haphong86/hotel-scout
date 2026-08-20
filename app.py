@@ -643,7 +643,7 @@ with tab_auto:
         saved_hotels = 0
         from scanner.overpass_scanner import scan_city_osm
         from scanner.google_maps_scraper import search_google_maps
-        from scanner.early_signals import scrape_booking_opening_soon, scrape_hotel_job_postings
+        from scanner.early_signals import scrape_booking_opening_soon, scrape_hotel_job_postings, scrape_recruitment_signals
 
         session = get_session()
         target_cities = selected_cities if selected_cities else ["Đà Nẵng", "Hội An"]

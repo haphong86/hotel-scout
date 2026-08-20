@@ -217,7 +217,10 @@ def scrape_booking_opening_soon(city: str) -> List[Dict]:
 # ═══════════════════════════════════════════════════════════════
 # NGUỒN 3: Tuyển dụng nhân viên KS mới — VietnamWorks / TopCV
 # KS tuyển GM, FOM, Housekeeping = sắp khai trương trong 2-4 tháng!
-# ═══════════════════════════════════════════════════════════════
+def scrape_recruitment_signals(city: str) -> List[Dict]:
+    """Tìm KS đang tuyển dụng nhân viên — dấu hiệu sắp khai trương."""
+    return scrape_hotel_job_postings(city)
+
 
 def scrape_hotel_job_postings(city: str) -> List[Dict]:
     """
