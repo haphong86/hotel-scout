@@ -1732,61 +1732,70 @@ with tab_logs:
     """, unsafe_allow_html=True)
 
     session_log = get_session()
-    all_email_logs = session_log.query(EmailLog).order_by(EmailLog.sent_at.desc()).limit(150).all()
+    all_email_logs = (
+        session_log.query(EmailLog)
+        .options(joinedload(EmailLog.contact), joinedload(EmailLog.hotel))
+        .order_by(EmailLog.sent_at.desc())
+        .limit(150)
+        .all()
+    )
     all_scan_logs = session_log.query(ScanLog).order_by(ScanLog.scanned_at.desc()).limit(50).all()
+
+    email_rows = []
+    for l in all_email_logs:
+        c = l.contact
+        h = l.hotel
+        email_rows.append({
+            "Thời gian": l.sent_at.strftime("%d/%m/%Y %H:%M:%S") if l.sent_at else "—",
+            "Khách sạn / Resort": h.name if h else "—",
+            "Thành phố": h.city if h else "—",
+            "Email nhận": c.email if c else "—",
+            "Chức vụ": c.title if c else "—",
+            "Tiêu đề email": l.subject or "—",
+            "Trạng thái": l.status or "Đã gửi",
+        })
+
+    scan_rows = []
+    for s in all_scan_logs:
+        dur_str = f"{s.duration_s}s" if s.duration_s else "—"
+        scan_rows.append({
+            "Thời gian": s.scanned_at.strftime("%d/%m/%Y %H:%M:%S") if s.scanned_at else "—",
+            "Thành phố": s.cities or "—",
+            "Tìm thấy": s.total_found,
+            "Mới lưu": s.new_saved,
+            "Bị trùng": s.skipped,
+            "Thời lượng": dur_str,
+            "Kích hoạt": s.triggered_by or "Thủ công",
+        })
+
     session_log.close()
 
     # Thống kê nhanh
     log_c1, log_c2, log_c3, log_c4 = st.columns(4)
-    log_c1.metric("TỔNG EMAIL ĐÃ GỬI", len(all_email_logs))
-    log_c2.metric("LƯỢT SCAN ĐÃ CHẠY", len(all_scan_logs))
+    log_c1.metric("TỔNG EMAIL ĐÃ GỬI", len(email_rows))
+    log_c2.metric("LƯỢT SCAN ĐÃ CHẠY", len(scan_rows))
     log_c3.metric("TRẠNG THÁI SERVER", "🟢 ONLINE")
     log_c4.metric("CRON CHU KỲ", "09:00 AM Hàng Ngày")
 
     st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
 
     log_sub1, log_sub2, log_sub3 = st.tabs([
-        f"📬 Nhật Ký Gửi Email ({len(all_email_logs)})",
-        f"🗺️ Lịch Sử Scan ({len(all_scan_logs)})",
+        f"📬 Nhật Ký Gửi Email ({len(email_rows)})",
+        f"🗺️ Lịch Sử Scan ({len(scan_rows)})",
         "🖥️ File Log Trực Tiếp (Live Stream)"
     ])
 
     with log_sub1:
-        if not all_email_logs:
+        if not email_rows:
             st.info("Chưa có nhật ký gửi email nào.")
         else:
-            email_rows = []
-            for l in all_email_logs:
-                c = l.contact
-                h = l.hotel
-                email_rows.append({
-                    "Thời gian": l.sent_at.strftime("%d/%m/%Y %H:%M:%S") if l.sent_at else "—",
-                    "Khách sạn / Resort": h.name if h else "—",
-                    "Thành phố": h.city if h else "—",
-                    "Email nhận": c.email if c else "—",
-                    "Chức vụ": c.title if c else "—",
-                    "Tiêu đề email": l.subject or "—",
-                    "Trạng thái": l.status or "Đã gửi",
-                })
             df_elog = pd.DataFrame(email_rows)
             st.dataframe(df_elog, use_container_width=True, height=450)
 
     with log_sub2:
-        if not all_scan_logs:
+        if not scan_rows:
             st.info("Chưa có lịch sử scan nào được ghi nhận.")
         else:
-            scan_rows = []
-            for s in all_scan_logs:
-                dur_str = f"{s.duration_s}s" if s.duration_s else "—"
-                scan_rows.append({
-                    "Thời gian": s.scanned_at.strftime("%d/%m/%Y %H:%M:%S") if s.scanned_at else "—",
-                    "Thành phố": s.cities or "—",
-                    "Tìm thấy": s.total_found,
-                    "Mới lưu": s.new_saved,
-                    "Bị trùng": s.skipped,
-                    "Thời lượng": dur_str,
-                    "Kích hoạt": s.triggered_by or "Thủ công",
-                })
             df_slog = pd.DataFrame(scan_rows)
             st.dataframe(df_slog, use_container_width=True, height=400)
 
