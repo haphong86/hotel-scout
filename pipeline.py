@@ -12,12 +12,47 @@ sys.path.insert(0, os.path.dirname(__file__))
 from dotenv import load_dotenv
 load_dotenv()
 
+from typing import List, Dict, Callable, Optional, Tuple, Set
+from sqlalchemy.orm import joinedload
 from database.models import get_session, Hotel, Contact, init_db
 from extractor.free_email_finder import (
     find_emails_free, guess_emails_by_pattern,
     get_domain_from_website, is_blacklisted_domain, EMAIL_PATTERNS_RANKED
 )
 from extractor.email_verifier import verify_email, check_mx, VerifyResult
+
+
+# ═══════════════════════════════════════════════════════════════
+# BƯỚC 1: Chọn KS cần xử lý
+# ═══════════════════════════════════════════════════════════════
+
+def get_hotels_to_process(
+    cities: List[str] = None,
+    limit: int = 50,
+    only_without_contact: bool = True,
+) -> List[Hotel]:
+    """Lấy danh sách KS cần tìm email"""
+    session = get_session()
+    try:
+        q = session.query(Hotel).options(joinedload(Hotel.contacts))
+
+        if cities:
+            q = q.filter(Hotel.city.in_(cities))
+
+        if only_without_contact:
+            q = q.filter(~Hotel.contacts.any())
+
+        # Ưu tiên KS có website (dễ tìm email hơn)
+        q = q.order_by(
+            Hotel.website.desc(),
+            Hotel.rating.desc(),
+        )
+
+        hotels = q.limit(limit).all()
+        session.expunge_all()
+        return hotels
+    finally:
+        session.close()
 
 
 def generate_candidates(hotel: Hotel) -> List[Dict]:
