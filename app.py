@@ -523,12 +523,13 @@ c5.metric("OPEN RATE",       stats["open_rate"])
 st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
 
 # ── TABS ─────────────────────────────────────────────────────
-tab_auto, tab1, tab2, tab3, tab4 = st.tabs([
+tab_auto, tab1, tab2, tab3, tab4, tab_logs = st.tabs([
     "🚀 1-CLICK AUTOPILOT",
     "SCANNER",
     "CONTACTS",
     "EMAIL CAMPAIGN",
     "ANALYTICS",
+    "📜 SYSTEM LOGS",
 ])
 
 
@@ -1713,6 +1714,104 @@ with tab4:
         st.plotly_chart(fig3, use_container_width=True)
     else:
         st.info("Chưa có lịch sử gửi email.")
+
+
+# ─────────────────────────────────────────────────────────────
+# TAB 5: SYSTEM LOGS
+# ─────────────────────────────────────────────────────────────
+with tab_logs:
+    st.markdown("""
+    <div style="background:#141414; border:1px solid #2a2a2a; border-left:3px solid #c9a96e; padding:16px 20px; border-radius:3px; margin-bottom:20px;">
+      <div style="font-size:10px; letter-spacing:2.5px; color:#c9a96e; text-transform:uppercase; font-weight:600;">
+        NHẬT KÝ VẬN HÀNH TOÀN HỆ THỐNG
+      </div>
+      <div style="font-size:13px; color:#aaa; margin-top:4px;">
+        Theo dõi minh bạch 100% từng tiến trình: Quét khách sạn, Lọc verify email, Gửi chiến dịch và Thông báo Telegram.
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    session_log = get_session()
+    all_email_logs = session_log.query(EmailLog).order_by(EmailLog.sent_at.desc()).limit(150).all()
+    all_scan_logs = session_log.query(ScanLog).order_by(ScanLog.created_at.desc()).limit(50).all()
+    session_log.close()
+
+    # Thống kê nhanh
+    log_c1, log_c2, log_c3, log_c4 = st.columns(4)
+    log_c1.metric("TỔNG EMAIL ĐÃ GỬI", len(all_email_logs))
+    log_c2.metric("LƯỢT SCAN ĐÃ CHẠY", len(all_scan_logs))
+    log_c3.metric("TRẠNG THÁI SERVER", "🟢 ONLINE")
+    log_c4.metric("CRON CHU KỲ", "09:00 AM Hàng Ngày")
+
+    st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+
+    log_sub1, log_sub2, log_sub3 = st.tabs([
+        f"📬 Nhật Ký Gửi Email ({len(all_email_logs)})",
+        f"🗺️ Lịch Sử Scan ({len(all_scan_logs)})",
+        "🖥️ File Log Trực Tiếp (Live Stream)"
+    ])
+
+    with log_sub1:
+        if not all_email_logs:
+            st.info("Chưa có nhật ký gửi email nào.")
+        else:
+            email_rows = []
+            for l in all_email_logs:
+                c = l.contact
+                h = l.hotel
+                email_rows.append({
+                    "Thời gian": l.sent_at.strftime("%d/%m/%Y %H:%M:%S") if l.sent_at else "—",
+                    "Khách sạn / Resort": h.name if h else "—",
+                    "Thành phố": h.city if h else "—",
+                    "Email nhận": c.email if c else "—",
+                    "Chức vụ": c.title if c else "—",
+                    "Tiêu đề email": l.subject or "—",
+                    "Trạng thái": l.status or "Đã gửi",
+                })
+            df_elog = pd.DataFrame(email_rows)
+            st.dataframe(df_elog, use_container_width=True, height=450)
+
+    with log_sub2:
+        if not all_scan_logs:
+            st.info("Chưa có lịch sử scan nào được ghi nhận.")
+        else:
+            scan_rows = []
+            for s in all_scan_logs:
+                dur_str = f"{s.duration_seconds:.1f}s" if s.duration_seconds else "—"
+                scan_rows.append({
+                    "Thời gian": s.created_at.strftime("%d/%m/%Y %H:%M:%S") if s.created_at else "—",
+                    "Thành phố": s.cities or "—",
+                    "Tìm thấy": s.hotels_found,
+                    "Mới lưu": s.hotels_new,
+                    "Bị trùng": s.hotels_skipped,
+                    "Thời lượng": dur_str,
+                    "Kích hoạt": s.trigger_type or "Thủ công",
+                })
+            df_slog = pd.DataFrame(scan_rows)
+            st.dataframe(df_slog, use_container_width=True, height=400)
+
+    with log_sub3:
+        raw_log_content = ""
+        for log_file in ["logs/email_daily.log", "logs/streamlit.log"]:
+            if os.path.exists(log_file):
+                try:
+                    with open(log_file, "r", encoding="utf-8") as f:
+                        lines = f.readlines()
+                        raw_log_content += f"=== {log_file} (Last 80 lines) ===\n" + "".join(lines[-80:]) + "\n\n"
+                except Exception as e:
+                    raw_log_content += f"Lỗi đọc {log_file}: {e}\n"
+
+        if not raw_log_content:
+            raw_log_content = "Hệ thống đang hoạt động bình thường, chưa có lỗi phát sinh."
+
+        st.code(raw_log_content, language="bash")
+        st.download_button(
+            "📥 Tải toàn bộ file log (.txt)",
+            data=raw_log_content,
+            file_name=f"haphong_system_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+            mime="text/plain"
+        )
+
 
 
 # ── Footer ────────────────────────────────────────────────────
