@@ -642,28 +642,48 @@ with tab_auto:
         total_scanned = 0
         saved_hotels = 0
         from scanner.overpass_scanner import scan_city_osm
+        from scanner.google_maps_scraper import search_google_maps
+        from scanner.early_signals import scrape_booking_opening_soon, scrape_recruitment_signals
 
         session = get_session()
         target_cities = selected_cities if selected_cities else ["Đà Nẵng", "Hội An"]
 
         for idx, city in enumerate(target_cities):
             try:
-                add_log(f"  • [{idx+1}/{len(target_cities)}] Đang quét dữ liệu tại {city}...")
+                add_log(f"  • [{idx+1}/{len(target_cities)}] 🌐 ĐANG QUÉT ĐA KÊNH TẠI {city.upper()}...")
+                
+                # 1. OpenStreetMap
                 osm = scan_city_osm(city, radius_km=15)
-                total_scanned += len(osm)
-                add_log(f"    ↳ {city}: Tìm thấy {len(osm)} khách sạn/resort.")
-                for h in osm:
+                add_log(f"    ↳ OSM: Tìm thấy {len(osm)} cơ sở.")
+                
+                # 2. Google Maps / Search
+                gmaps = search_google_maps(f"khách sạn mới {city}", city)
+                add_log(f"    ↳ Google Maps & Search: Tìm thấy {len(gmaps)} KS/Resort.")
+
+                # 3. Booking.com Newly Opened / Opening Soon
+                b_soon = scrape_booking_opening_soon(city)
+                add_log(f"    ↳ Booking (Mới mở / Sắp mở): Tìm thấy {len(b_soon)} lead nóng.")
+
+                # 4. Tin tuyển dụng GM/Marketing (Hoteljob, TopCV)
+                jobs = scrape_recruitment_signals(city)
+                add_log(f"    ↳ Tuyển dụng GM/MKT (Hoteljob/TopCV): Tìm thấy {len(jobs)} tín hiệu.")
+
+                all_found = osm + gmaps + b_soon + jobs
+                total_scanned += len(all_found)
+
+                for h in all_found:
                     name = (h.get("name") or "").strip()
-                    if not name:
+                    if not name or len(name) < 3:
                         continue
                     exists = session.query(Hotel).filter(Hotel.name == name, Hotel.city == city).first()
                     if not exists:
                         session.add(Hotel(
                             name=name, city=city,
-                            address=h.get("address"), website=h.get("website"),
+                            address=h.get("address"), website=h.get("website") or h.get("source_url"),
                             phone_main=h.get("phone_main"), rating=h.get("rating"),
                             review_count=h.get("review_count", 0),
-                            source="openstreetmap", status="Mới tìm thấy"
+                            source=h.get("source", "multi_source"),
+                            status="Đang xây / Sắp mở" if h.get("signal") else "Mới tìm thấy"
                         ))
                         saved_hotels += 1
             except Exception as e:
@@ -671,7 +691,7 @@ with tab_auto:
 
         session.commit()
         session.close()
-        add_log(f"✅ GIAI ĐOẠN 1 XONG: +{saved_hotels} khách sạn mới lưu vào kho.")
+        add_log(f"✅ GIAI ĐOẠN 1 XONG: Đã quét Đa Kênh, +{saved_hotels} khách sạn mới lưu vào kho.")
         p_bar.progress(0.40)
 
         # ── GIAI ĐOẠN 2: TÌM & VERIFY EMAIL ───────────────────
