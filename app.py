@@ -617,15 +617,14 @@ with tab_auto:
         from scanner.overpass_scanner import scan_city_osm
 
         session = get_session()
-        # Lấy tối đa 2 thành phố đầu tiên trong danh sách chọn để quét nhanh trong 5 giây
-        active_cities = auto_cities[:2] if auto_cities else ["Đà Nẵng", "Hội An"]
+        target_cities = auto_cities if auto_cities else ["Đà Nẵng", "Hội An"]
 
-        for city in active_cities:
+        for idx, city in enumerate(target_cities):
             try:
-                add_log(f"  • Đang quét dữ liệu tại {city}...")
+                add_log(f"  • [{idx+1}/{len(target_cities)}] Đang quét dữ liệu tại {city}...")
                 osm = scan_city_osm(city, radius_km=15)
                 total_scanned += len(osm)
-                add_log(f"  • Quét {city}: Tìm thấy {len(osm)} cơ sở.")
+                add_log(f"    ↳ {city}: Tìm thấy {len(osm)} khách sạn/resort.")
                 for h in osm:
                     name = (h.get("name") or "").strip()
                     if not name:
