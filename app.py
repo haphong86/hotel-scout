@@ -726,36 +726,57 @@ with tab_auto:
             .all()
         )
 
-        # BỘ LỌC ĐẶC CÁCH: GỬI ĐẾN TẤT CẢ EMAIL LÃNH ĐẠO CỦA KHÁCH SẠN (GM, DOSM, SM, MARKETING, SALES)
-        # LOẠI BỎ 100% CÁC HÒM THƯ TIẾP NHẬN CHUNG (INFO, RESERVATION, BOOKING, CONTACT, RECEPTION...)
+        # BỘ LỌC ĐẶC CÁCH: GỬI THEO TỪNG KHÁCH SẠN (HOTEL-BY-HOTEL)
+        # Khách sạn A: Gửi cho GM + DOSM + SM + Marketing + Sales của KS A
+        # Sau đó mới chuyển sang Khách sạn B: Gửi GM + DOSM + Marketing của KS B
         GENERIC_DISALLOWED = {
             "info", "reservation", "reservations", "booking", "bookings",
             "contact", "reception", "letan", "stay", "hello", "frontdesk",
             "enquiry", "enquiries", "admin", "office", "fnb", "spa", "restaurant"
         }
 
+        # Các domain chuỗi toàn cầu không có hộp thư ngắn hạn như gm@hilton.com
+        CHAIN_GLOBAL_DOMAINS = {"hilton.com", "marriott.com", "hyatt.com", "ihg.com", "accor.com"}
+
+        session = get_session()
+        hotels_to_process = (
+            session.query(Hotel)
+            .filter(Hotel.contacts.any())
+            .order_by(Hotel.rating.desc(), Hotel.review_count.desc())
+            .all()
+        )
+
         seen_emails = set()
         pending = []
-        for c in raw_pending:
-            h = c.hotel
-            if not h:
-                continue
 
-            c_email = c.email.lower().strip()
-            if c_email in seen_emails:
-                continue
+        for h in hotels_to_process:
+            # Lấy tất cả các email lãnh đạo chưa gửi của khách sạn này
+            hotel_contacts = (
+                session.query(Contact)
+                .filter(Contact.hotel_id == h.id)
+                .filter(Contact.email.isnot(None), Contact.email != "", ~Contact.email_logs.any())
+                .order_by(Contact.confidence.desc())
+                .all()
+            )
 
-            # Kiểm tra tiền tố hòm thư: Tuyệt đối không gửi vào hòm thư chung / lễ tân
-            prefix = c_email.split("@")[0].lower()
-            if prefix in GENERIC_DISALLOWED:
-                continue
+            for c in hotel_contacts:
+                c_email = c.email.lower().strip()
+                if c_email in seen_emails:
+                    continue
 
-            dom = c_email.split("@")[-1].strip()
-            if is_blacklisted_domain(dom):
-                continue
+                prefix = c_email.split("@")[0].lower()
+                if prefix in GENERIC_DISALLOWED:
+                    continue
 
-            seen_emails.add(c_email)
-            pending.append(c)
+                dom = c_email.split("@")[-1].strip()
+                if is_blacklisted_domain(dom) or (dom in CHAIN_GLOBAL_DOMAINS and len(prefix) <= 3):
+                    continue
+
+                seen_emails.add(c_email)
+                pending.append(c)
+                if len(pending) >= auto_email_limit:
+                    break
+
             if len(pending) >= auto_email_limit:
                 break
 

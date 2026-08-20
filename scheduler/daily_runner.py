@@ -154,33 +154,52 @@ def run_daily_autopilot_job():
         "contact", "reception", "letan", "stay", "hello", "frontdesk",
         "enquiry", "enquiries", "admin", "office", "fnb", "spa", "restaurant"
     }
+    CHAIN_GLOBAL_DOMAINS = {"hilton.com", "marriott.com", "hyatt.com", "ihg.com", "accor.com"}
 
-    for c in raw_pending:
+    hotels_to_process = (
+        session.query(Hotel)
+        .filter(Hotel.contacts.any())
+        .order_by(Hotel.rating.desc(), Hotel.review_count.desc())
+        .all()
+    )
+
+    seen_emails = set()
+    sent_count = 0
+
+    for h in hotels_to_process:
         if sent_count >= 20:
             break
 
-        h = c.hotel
-        if not h:
-            continue
+        hotel_contacts = (
+            session.query(Contact)
+            .filter(Contact.hotel_id == h.id)
+            .filter(Contact.email.isnot(None), Contact.email != "", ~Contact.email_logs.any())
+            .order_by(Contact.confidence.desc())
+            .all()
+        )
 
-        c_email = c.email.lower().strip()
-        if c_email in seen_emails:
-            continue
+        for c in hotel_contacts:
+            if sent_count >= 20:
+                break
 
-        prefix = c_email.split("@")[0].lower()
-        if prefix in GENERIC_DISALLOWED:
-            continue
+            c_email = c.email.lower().strip()
+            if c_email in seen_emails:
+                continue
 
-        c_dom = c_email.split("@")[-1].strip()
-        if is_blacklisted_domain(c_dom):
-            continue
+            prefix = c_email.split("@")[0].lower()
+            if prefix in GENERIC_DISALLOWED:
+                continue
 
-        # Kiểm tra máy chủ mail trước khi gửi
-        mx = check_mx(c_dom)
-        if not mx:
-            continue
+            c_dom = c_email.split("@")[-1].strip()
+            if is_blacklisted_domain(c_dom) or (c_dom in CHAIN_GLOBAL_DOMAINS and len(prefix) <= 3):
+                continue
 
-        seen_emails.add(c_email)
+            # Kiểm tra máy chủ mail trước khi gửi
+            mx = check_mx(c_dom)
+            if not mx:
+                continue
+
+            seen_emails.add(c_email)
 
         h = c.hotel
         h_city = h.city or "Việt Nam"
