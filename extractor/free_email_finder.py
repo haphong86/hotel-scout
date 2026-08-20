@@ -25,13 +25,8 @@ HEADERS = {
     "Accept-Language": "vi-VN,vi;q=0.9,en;q=0.8",
 }
 
-# Pattern email theo thứ tự QUYỀN QUYẾT ĐỊNH CHỤP ẢNH TỪ CAO XUỐNG THẤP:
-# 1. GM (Tổng Giám Đốc)
-# 2. DOSM (Giám Đốc Sales & Marketing)
-# 3. SM (Sales Manager)
-# 4. Marketing (Marketing Manager)
-# 5. Sales (Phòng Kinh Doanh)
-# 6. Info / Reservation (Hòm thư tiếp nhận chính thức - Fallback cuối cùng)
+# CHỈ GIỮ LẠI CÁC EMAIL CÓ QUYỀN QUYẾT ĐỊNH CHỤP ẢNH (GM, DOSM, SM, MARKETING, SALES)
+# TUYỆT ĐỐI KHÔNG GỬI VÀO INFO, RESERVATION, BOOKING
 EMAIL_PATTERNS_RANKED = [
     # ── CẤP 1: TỔNG GIÁM ĐỐC (GM) — QUYẾT ĐỊNH CAO NHẤT ──
     ("gm",                  "Tổng Giám Đốc (General Manager)",      98),
@@ -57,12 +52,6 @@ EMAIL_PATTERNS_RANKED = [
     # ── CẤP 5: PHÒNG KINH DOANH (SALES DEPT) ──
     ("sales",               "Phòng Kinh Doanh (Sales Dept)",        85),
     ("salesmarketing",      "Sales & Marketing",                    82),
-
-    # ── CẤP 6: HÒM THƯ TIẾP NHẬN CHÍNH THỨC (FALLBACK NẾU KHÔNG CÓ HÒM THƯ CÁ NHÂN) ──
-    ("info",                "Ban Quản Lý & Tiếp Nhận",              75),
-    ("reservation",         "Phòng Đặt Phòng & Kinh Doanh",         72),
-    ("booking",             "Phòng Booking",                        70),
-    ("contact",             "Bộ Phận Liên Hệ",                      68),
 ]
 
 # Chức vụ ưu tiên — người quyết định mua ảnh

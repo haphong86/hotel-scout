@@ -706,7 +706,14 @@ with tab_auto:
             .all()
         )
 
-        # LỌC NGHIÊM NGẶT: 1 Khách sạn = Gửi 1 email DUY NHẤT (Nếu hết thì chuyển sang KS khác)
+        # BỘ LỌC ĐẶC CÁCH: CHỈ CHO PHÉP EMAIL NGƯỜI CÓ QUYỀN QUYẾT ĐỊNH (GM, DOSM, SM, MARKETING, SALES)
+        # LOẠI BỎ 100% CÁC HÒM THƯ TIẾP NHẬN CHUNG (INFO, RESERVATION, BOOKING, CONTACT, RECEPTION...)
+        GENERIC_DISALLOWED = {
+            "info", "reservation", "reservations", "booking", "bookings",
+            "contact", "reception", "letan", "stay", "hello", "frontdesk",
+            "enquiry", "enquiries", "admin", "office", "fnb", "spa", "restaurant"
+        }
+
         seen_hotel_ids = set()
         seen_emails = set()
         pending = []
@@ -722,6 +729,11 @@ with tab_auto:
             if c_email in seen_emails:
                 continue
 
+            # Kiểm tra tiền tố hòm thư: Tuyệt đối không gửi vào hòm thư chung / lễ tân
+            prefix = c_email.split("@")[0].lower()
+            if prefix in GENERIC_DISALLOWED:
+                continue
+
             dom = c_email.split("@")[-1].strip()
             if is_blacklisted_domain(dom):
                 continue
@@ -734,9 +746,9 @@ with tab_auto:
 
         sent_count = 0
         if not pending:
-            add_log("  ℹ️ Không có khách sạn mới cần gửi (hoặc tất cả KS đã được liên hệ rồi).")
+            add_log("  ℹ️ Không có khách sạn mới có email Giám đốc/Marketing hợp lệ cần gửi.")
         else:
-            add_log(f"  📬 Sẵn sàng gửi {len(pending)} email tới {len(pending)} khách sạn khác nhau 100%...")
+            add_log(f"  📬 Sẵn sàng gửi {len(pending)} email tới {len(pending)} Giám Đốc / Marketing / Sales của các KS khác nhau...")
             # Nạp 2 mẫu template: Tiếng Việt (nội địa) & Tiếng Anh (quốc tế / chuỗi 4-5 sao)
             with open("campaign/templates/email_01_intro.html", "r", encoding="utf-8") as f:
                 tpl_vi = f.read()

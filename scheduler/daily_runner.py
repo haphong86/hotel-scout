@@ -139,6 +139,12 @@ def run_daily_autopilot_job():
     seen_emails = set()
     sent_count = 0
 
+    GENERIC_DISALLOWED = {
+        "info", "reservation", "reservations", "booking", "bookings",
+        "contact", "reception", "letan", "stay", "hello", "frontdesk",
+        "enquiry", "enquiries", "admin", "office", "fnb", "spa", "restaurant"
+    }
+
     for c in raw_pending:
         if sent_count >= 20:
             break
@@ -151,6 +157,10 @@ def run_daily_autopilot_job():
 
         c_email = c.email.lower().strip()
         if c_email in seen_emails:
+            continue
+
+        prefix = c_email.split("@")[0].lower()
+        if prefix in GENERIC_DISALLOWED:
             continue
 
         c_dom = c_email.split("@")[-1].strip()
