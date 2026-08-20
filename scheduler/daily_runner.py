@@ -51,23 +51,34 @@ def run_daily_autopilot_job():
     total_found = 0
     saved_hotels = 0
     skipped_hotels = 0
+    from scanner.overpass_scanner import scan_city_osm
+    from scanner.google_maps_scraper import search_google_maps
+    from scanner.early_signals import scrape_booking_opening_soon, scrape_recruitment_signals
 
     for city in target_cities:
         try:
+            print(f"  • Quét đa kênh tại {city}...")
             osm = scan_city_osm(city, radius_km=15)
-            total_found += len(osm)
-            for h in osm:
+            gmaps = search_google_maps(f"khách sạn mới {city}", city)
+            b_soon = scrape_booking_opening_soon(city)
+            jobs = scrape_recruitment_signals(city)
+
+            all_found = osm + gmaps + b_soon + jobs
+            total_found += len(all_found)
+
+            for h in all_found:
                 name = (h.get("name") or "").strip()
-                if not name:
+                if not name or len(name) < 3:
                     continue
                 exists = session.query(Hotel).filter(Hotel.name == name, Hotel.city == city).first()
                 if not exists:
                     session.add(Hotel(
                         name=name, city=city,
-                        address=h.get("address"), website=h.get("website"),
+                        address=h.get("address"), website=h.get("website") or h.get("source_url"),
                         phone_main=h.get("phone_main"), rating=h.get("rating"),
                         review_count=h.get("review_count", 0),
-                        source="openstreetmap", status="Mới tìm thấy"
+                        source=h.get("source", "multi_source"),
+                        status="Đang xây / Sắp mở" if h.get("signal") else "Mới tìm thấy"
                     ))
                     saved_hotels += 1
                 else:
