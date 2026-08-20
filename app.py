@@ -1968,6 +1968,20 @@ with tab_logs:
     ])
 
     with log_sub1:
+        sync_c1, sync_c2 = st.columns([3, 1])
+        with sync_c1:
+            st.caption("Trạng thái được cập nhật trực tiếp theo thời gian thực từ SMTP, Webhook Theo Dõi Mở Thư, và Mailer-Daemon IMAP.")
+        with sync_c2:
+            sync_btn = st.button("🔄 Đồng Bộ Thư Bị Trả Về", help="Quét hộp thư Gmail để tự động phát hiện các thư bị lỗi 550 No Such User / Address not found")
+            if sync_btn:
+                from campaign.bounce_checker import sync_email_bounces
+                b_res = sync_email_bounces(max_emails_to_check=50)
+                if b_res.get("success"):
+                    st.success(f"✅ Đã đồng bộ: Phát hiện {b_res.get('updated_logs', 0)} email bị trả về và cập nhật nhật ký!")
+                    st.rerun()
+                else:
+                    st.error(f"⚠️ Lỗi đồng bộ: {b_res.get('error')}")
+
         if not email_rows:
             st.info("Chưa có nhật ký gửi email nào.")
         else:
