@@ -144,6 +144,35 @@ def send_daily_telegram_report() -> bool:
     return send_telegram_message(report_text)
 
 
+def send_hot_lead_alert(
+    hotel_name: str,
+    city: str,
+    stars: Optional[int] = None,
+    email: str = "",
+    phone: str = "",
+    website: str = "",
+    reason: str = "Khách sạn / Resort tiềm năng mới phát hiện"
+) -> bool:
+    """Bắn thông báo TỨC THÌ qua Telegram khi tìm thấy Khách sạn / Resort tiềm năng cao"""
+    stars_str = f" ({stars}⭐)" if stars else ""
+    phone_clean = phone.replace(" ", "").replace(".", "")
+    zalo_link = f"[Nhắn Zalo](https://zalo.me/{phone_clean})" if phone_clean else "Đang cập nhật"
+
+    text = f"""
+🔥 *PHÁT HIỆN HOT LEAD MỚI!*
+━━━━━━━━━━━━━━━━━━━━━
+🏨 *Cơ sở:* *{hotel_name}*{stars_str}
+📍 *Khu vực:* {city}
+📧 *Email:* `{email}`
+📞 *Hotline/Zalo:* {phone or 'Đang cập nhật'} ({zalo_link})
+🌐 *Website:* {website or 'Chưa có website riêng'}
+💡 *Đánh giá:* {reason}
+━━━━━━━━━━━━━━━━━━━━━
+⚡ *Hà Phong Visuals · Real-time Scout Alert*
+"""
+    return send_telegram_message(text.strip())
+
+
 if __name__ == "__main__":
     print("📋 Báo cáo xem trước:")
     print(generate_daily_report())
