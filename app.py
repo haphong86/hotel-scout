@@ -698,24 +698,51 @@ with tab_auto:
             add_log("  ℹ️ Không có email mới đủ chuẩn sạch (hoặc đã gửi hết).")
         else:
             add_log(f"  📬 Sẵn sàng gửi {len(pending)} email sạch 100%...")
-            # Sử dụng template Mẫu 1 (Hero Intro) hoặc xoay vòng
-            tpl_path = "campaign/templates/email_01_intro.html"
-            with open(tpl_path, "r", encoding="utf-8") as f:
-                tpl_html = f.read()
+            # Nạp 2 mẫu template: Tiếng Việt (nội địa) & Tiếng Anh (quốc tế / chuỗi 4-5 sao)
+            with open("campaign/templates/email_01_intro.html", "r", encoding="utf-8") as f:
+                tpl_vi = f.read()
+            with open("campaign/templates/email_en_01_intro.html", "r", encoding="utf-8") as f:
+                tpl_en = f.read()
+
+            intl_keywords = {
+                "hyatt", "marriott", "hilton", "sheraton", "intercontinental", "novotel", "pullman",
+                "radisson", "four seasons", "banyan tree", "melia", "wyndham", "anantara", "six senses",
+                "renaissance", "mercure", "sofitel", "crowne plaza", "shangri-la", "jw marriott",
+                "le meridien", "st. regis", "w hotel", "voco", "holiday inn", "fusion", "salinda",
+                "almanity", "allegro", "belhamy", "nam an", "tia wellness", "la siesta", "premier village"
+            }
 
             for idx, c in enumerate(pending):
                 h = c.hotel
                 h_city = h.city or "Việt Nam"
-                subj = f"[{h.name}] — Giải pháp nâng cấp hình ảnh kiến trúc & visual khách sạn"
-                body = Template(tpl_html).render(
-                    hotel_name=h.name,
-                    contact_name=c.name or c.title or "Anh/Chị",
-                    city=h_city,
-                    to_email=c.email,
-                    subject=subj,
-                )
+                c_dom = c.email.split("@")[-1].lower().strip()
+                h_name_lower = h.name.lower()
 
-                add_log(f"  📤 [{idx+1}/{len(pending)}] Gửi → {c.email} ({h.name[:25]})...")
+                # Tự động phát hiện khách sạn Quốc tế / Quản lý nước ngoài
+                is_intl = any(k in h_name_lower for k in intl_keywords) or (c_dom.endswith(".com") and not c_dom.endswith(".vn") and h.stars and h.stars >= 4)
+
+                if is_intl:
+                    subj = f"[{h.name}] — Elevating Architectural & Visual Identity in {h_city}"
+                    body = Template(tpl_en).render(
+                        hotel_name=h.name,
+                        contact_name=c.name or "General Manager / Marketing Director",
+                        city=h_city,
+                        to_email=c.email,
+                        subject=subj,
+                    )
+                    lang_tag = "🌐 EN"
+                else:
+                    subj = f"[{h.name}] — Giải pháp nâng cấp hình ảnh kiến trúc & visual khách sạn"
+                    body = Template(tpl_vi).render(
+                        hotel_name=h.name,
+                        contact_name=c.name or c.title or "Anh/Chị",
+                        city=h_city,
+                        to_email=c.email,
+                        subject=subj,
+                    )
+                    lang_tag = "🇻🇳 VI"
+
+                add_log(f"  📤 [{idx+1}/{len(pending)}] {lang_tag} Gửi → {c.email} ({h.name[:22]})...")
                 res = send_email(c.email, c.name or "", subj, body)
                 if res.get("success"):
                     sent_count += 1
@@ -725,7 +752,6 @@ with tab_auto:
                     ))
                     h.status = "Đã liên hệ"
                     session.commit()
-                # Delay an toàn 1.5s trong chế độ test/chạy nhanh
                 _t.sleep(1.5)
 
         session.close()
