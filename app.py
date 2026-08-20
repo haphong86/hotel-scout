@@ -523,12 +523,216 @@ c5.metric("OPEN RATE",       stats["open_rate"])
 st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
 
 # ── TABS ─────────────────────────────────────────────────────
-tab1, tab2, tab3, tab4 = st.tabs([
+tab_auto, tab1, tab2, tab3, tab4 = st.tabs([
+    "🚀 1-CLICK AUTOPILOT",
     "SCANNER",
     "CONTACTS",
     "EMAIL CAMPAIGN",
     "ANALYTICS",
 ])
+
+
+# ─────────────────────────────────────────────────────────────
+# TAB 0: 1-CLICK AUTOPILOT
+# ─────────────────────────────────────────────────────────────
+with tab_auto:
+    st.markdown("""
+    <div style="background: linear-gradient(135deg, #181510 0%, #0d0d0d 100%);
+                border: 1px solid #c9a96e; border-radius: 4px; padding: 24px 28px; margin-bottom: 24px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;">
+        <div>
+          <div style="font-size:10px;letter-spacing:3px;color:#c9a96e;text-transform:uppercase;font-weight:600;">
+            HỆ THỐNG TỰ ĐỘNG HÓA TOÀN DIỆN
+          </div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:26px;color:#f0ebe3;margin:4px 0 6px;">
+            1-Click Master Auto-Pilot
+          </div>
+          <div style="font-size:12px;color:#999;max-width:650px;line-height:1.6;">
+            Chỉ với 1 nút bấm: Hệ thống tự động <b>Quét KS mới</b> ➔ <b>Đoán & Verify Email sống</b> ➔ <b>Gửi 20–25 email từ sales@haphong.com</b> ➔ <b>Bắn báo cáo về Telegram</b>.
+          </div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:10px;letter-spacing:1px;color:#4a7c59;text-transform:uppercase;font-weight:bold;">
+            ● 24/7 Server Status: ONLINE
+          </div>
+          <div style="font-size:11px;color:#666;margin-top:4px;">
+            ⏰ Tự động chạy mỗi sáng lúc <b>09:00 AM</b>
+          </div>
+        </div>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    col_cfg1, col_cfg2, col_btn = st.columns([2, 2, 2])
+
+    with col_cfg1:
+        auto_cities = st.multiselect(
+            "Thành phố ưu tiên quét:",
+            options=["Đà Nẵng", "Hội An", "Quảng Nam", "Huế", "Quy Nhơn", "Phú Yên", "Nha Trang", "Đà Lạt", "Phú Quốc"],
+            default=["Đà Nẵng", "Hội An", "Quảng Nam"],
+        )
+
+    with col_cfg2:
+        auto_email_limit = st.slider("Số email gửi trong lượt này:", min_value=5, max_value=30, value=20, step=5)
+        auto_telegram = st.checkbox("Bắn báo cáo Telegram sau khi xong", value=True)
+
+    with col_btn:
+        st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+        start_autopilot_btn = st.button(
+            "⚡ START AUTOPILOT",
+            type="primary",
+            use_container_width=True,
+            help="Chạy toàn bộ quy trình: Quét -> Tìm Email -> Verify -> Gửi Chiến Dịch -> Báo Cáo Telegram"
+        )
+
+    # ── THỰC THI TOÀN BỘ QUY TRÌNH 1-CLICK ────────────────────
+    if start_autopilot_btn:
+        import time as _t
+        start_time = _t.time()
+
+        status_box = st.status("🚀 Đang khởi động quy trình Auto-Pilot...", expanded=True)
+        log_box = st.empty()
+        p_bar = st.progress(0.0)
+        logs = []
+
+        def add_log(msg):
+            logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
+            log_box.code("\n".join(logs[-16:]))
+
+        # ── GIAI ĐOẠN 1: QUÉT KHÁCH SẠN ──────────────────────
+        status_box.update(label="🔍 Bước 1/4: Đang quét khách sạn mới...")
+        add_log("🚀 BẮT ĐẦU GIAI ĐOẠN 1: Quét khách sạn...")
+        p_bar.progress(0.15)
+
+        total_scanned = 0
+        saved_hotels = 0
+        from scanner.overpass_scanner import scan_city_osm
+
+        session = get_session()
+        target_cities = auto_cities if auto_cities else ["Đà Nẵng", "Hội An"]
+
+        for city in target_cities:
+            try:
+                osm = scan_city_osm(city, radius_km=20)
+                total_scanned += len(osm)
+                add_log(f"  • Quét {city}: Tìm thấy {len(osm)} cơ sở.")
+                for h in osm:
+                    name = (h.get("name") or "").strip()
+                    if not name:
+                        continue
+                    exists = session.query(Hotel).filter(Hotel.name == name, Hotel.city == city).first()
+                    if not exists:
+                        session.add(Hotel(
+                            name=name, city=city,
+                            address=h.get("address"), website=h.get("website"),
+                            phone_main=h.get("phone_main"), rating=h.get("rating"),
+                            review_count=h.get("review_count", 0),
+                            source="openstreetmap", status="Mới tìm thấy"
+                        ))
+                        saved_hotels += 1
+            except Exception as e:
+                add_log(f"  ⚠️ Lỗi quét {city}: {e}")
+
+        session.commit()
+        session.close()
+        add_log(f"✅ GIAI ĐOẠN 1 XONG: +{saved_hotels} khách sạn mới lưu vào kho.")
+        p_bar.progress(0.40)
+
+        # ── GIAI ĐOẠN 2: TÌM & VERIFY EMAIL ───────────────────
+        status_box.update(label="🔎 Bước 2/4: Đang tìm kiếm & verify email sống...")
+        add_log("🚀 BẮT ĐẦU GIAI ĐOẠN 2: Tìm kiếm & xác thực Email...")
+
+        from pipeline import run_pipeline
+        pipe_res = run_pipeline(
+            cities=target_cities,
+            limit=25,
+            log_fn=add_log,
+        )
+        add_log(f"✅ GIAI ĐOẠN 2 XONG: Tìm được {pipe_res.get('emails_saved', 0)} email đã verify sạch.")
+        p_bar.progress(0.70)
+
+        # ── GIAI ĐOẠN 3: GỬI CHIẾN DỊCH EMAIL ────────────────
+        status_box.update(label="📨 Bước 3/4: Đang gửi email chính danh từ sales@haphong.com...")
+        add_log("🚀 BẮT ĐẦU GIAI ĐOẠN 3: Gửi email chiến dịch...")
+
+        from campaign.email_sender import send_email
+        from jinja2 import Template
+
+        session = get_session()
+        pending = (
+            session.query(Contact)
+            .join(Hotel)
+            .filter(Contact.email.isnot(None), Contact.email != "", ~Contact.email_logs.any())
+            .filter(Contact.verify_status.in_(["VALID", "LIKELY", "UNVERIFIED"]))
+            .order_by(Contact.confidence.desc())
+            .limit(auto_email_limit)
+            .all()
+        )
+
+        sent_count = 0
+        if not pending:
+            add_log("  ℹ️ Không có contact mới cần gửi (hoặc đã gửi hết).")
+        else:
+            add_log(f"  📬 Sẵn sàng gửi {len(pending)} email...")
+            # Sử dụng template Mẫu 1 (Hero Intro) hoặc xoay vòng
+            tpl_path = "campaign/templates/email_01_intro.html"
+            with open(tpl_path, "r", encoding="utf-8") as f:
+                tpl_html = f.read()
+
+            for idx, c in enumerate(pending):
+                h = c.hotel
+                h_city = h.city or "Việt Nam"
+                subj = f"[{h.name}] — Giải pháp nâng cấp hình ảnh kiến trúc & visual khách sạn"
+                body = Template(tpl_html).render(
+                    hotel_name=h.name,
+                    contact_name=c.name or c.title or "Anh/Chị",
+                    city=h_city,
+                    to_email=c.email,
+                    subject=subj,
+                )
+
+                add_log(f"  📤 [{idx+1}/{len(pending)}] Gửi → {c.email} ({h.name[:25]})...")
+                res = send_email(c.email, c.name or "", subj, body)
+                if res.get("success"):
+                    sent_count += 1
+                    session.add(EmailLog(
+                        hotel_id=h.id, contact_id=c.id, sequence_num=1,
+                        subject=subj, status="Đã gửi", sent_at=datetime.now()
+                    ))
+                    h.status = "Đã liên hệ"
+                    session.commit()
+                # Delay an toàn 1.5s trong chế độ test/chạy nhanh
+                _t.sleep(1.5)
+
+        session.close()
+        add_log(f"✅ GIAI ĐOẠN 3 XONG: Đã gửi thành công {sent_count} email!")
+        p_bar.progress(0.90)
+
+        # ── GIAI ĐOẠN 4: BÁO CÁO TELEGRAM ────────────────────
+        status_box.update(label="📱 Bước 4/4: Đang gửi báo cáo qua Telegram...")
+        if auto_telegram:
+            add_log("🚀 BẮT ĐẦU GIAI ĐOẠN 4: Gửi báo cáo Telegram...")
+            try:
+                from notifications.telegram_bot import send_daily_telegram_report
+                tg_ok = send_daily_telegram_report()
+                if tg_ok:
+                    add_log("  ✅ Đã gửi báo cáo chi tiết về Telegram!")
+                else:
+                    add_log("  ℹ️ Đã hoàn thành (Chưa cấu hình Telegram Chat ID hoặc bỏ qua).")
+            except Exception as e:
+                add_log(f"  ⚠️ Lỗi gửi Telegram: {e}")
+
+        p_bar.progress(1.0)
+        elapsed = int(_t.time() - start_time)
+        status_box.update(label=f"🎉 QUY TRÌNH HOÀN TẤT TRONG {elapsed} GIÂY!", state="complete", expanded=True)
+
+        st.success(
+            f"🎉 **Quy trình 1-Click Autopilot hoàn tất thành công!**  \n"
+            f"• Khách sạn mới: **+{saved_hotels}**  \n"
+            f"• Email đã verify: **+{pipe_res.get('emails_saved', 0)}**  \n"
+            f"• Email đã gửi: **{sent_count} thư** (từ sales@haphong.com)  \n"
+            f"• Thời gian chạy: **{elapsed} giây**"
+        )
 
 
 # ─────────────────────────────────────────────────────────────
