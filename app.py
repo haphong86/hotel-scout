@@ -654,7 +654,7 @@ with tab_auto:
 
         from pipeline import run_pipeline
         pipe_res = run_pipeline(
-            cities=target_cities,
+            cities=auto_cities if auto_cities else None,
             limit=25,
             log_fn=add_log,
         )
