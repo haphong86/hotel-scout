@@ -108,14 +108,14 @@ def run_daily_autopilot_job():
         except Exception as e:
             print(f"  ⚠️ Verify lỗi cho {h.name}: {e}")
 
-    # 3. Gửi 20 Email chiến dịch chuẩn sạch
+    # 3. Gửi 20 Email chiến dịch chuẩn sạch (1 Khách sạn = 1 Email duy nhất)
     raw_pending = (
         session.query(Contact)
         .join(Hotel)
         .filter(Contact.email.isnot(None), Contact.email != "", ~Contact.email_logs.any())
         .filter(Contact.verify_status.in_(["VALID", "LIKELY"]))
         .order_by(Contact.confidence.desc())
-        .limit(60)
+        .limit(200)
         .all()
     )
 
@@ -135,12 +135,25 @@ def run_daily_autopilot_job():
         "almanity", "allegro", "belhamy", "nam an", "tia wellness", "la siesta", "premier village"
     }
 
+    seen_hotel_ids = set()
+    seen_emails = set()
     sent_count = 0
+
     for c in raw_pending:
         if sent_count >= 20:
             break
 
-        c_dom = c.email.split("@")[-1].lower().strip()
+        h = c.hotel
+        if not h or h.id in seen_hotel_ids:
+            continue
+        if h.status in ["Đã liên hệ", "Đang liên hệ"] or (h.email_logs and len(h.email_logs) > 0):
+            continue
+
+        c_email = c.email.lower().strip()
+        if c_email in seen_emails:
+            continue
+
+        c_dom = c_email.split("@")[-1].strip()
         if is_blacklisted_domain(c_dom):
             continue
 
@@ -148,6 +161,9 @@ def run_daily_autopilot_job():
         mx = check_mx(c_dom)
         if not mx:
             continue
+
+        seen_hotel_ids.add(h.id)
+        seen_emails.add(c_email)
 
         h = c.hotel
         h_city = h.city or "Việt Nam"

@@ -25,111 +25,22 @@ HEADERS = {
     "Accept-Language": "vi-VN,vi;q=0.9,en;q=0.8",
 }
 
-# Pattern email theo thứ tự ưu tiên quyết định
-# Dựa trên cấp bậc thực tế KS VN + chain quốc tế
-# Format: (local_part, chức_vụ, confidence_score)
+# Pattern email theo thứ tự thực tế 99% Khách sạn VN đều có
+# Ưu tiên các hòm thư tiếp nhận chính thức trước để tránh 550 No Such User
 EMAIL_PATTERNS_RANKED = [
-
-    # ════════════════════════════════════════════════════
-    # TIER 1 — Quyết định trực tiếp (Reply 10-20%)
-    # ════════════════════════════════════════════════════
-
-    # Marketing — người cần ảnh nhất
-    ("marketing",           "Marketing Manager",                92),
-    ("marketing.manager",   "Marketing Manager",                90),
-    ("marketingmanager",    "Marketing Manager",                88),
-    ("marcom",              "Marketing & Communications Mgr",   88),
-    ("marketing.comm",      "Marketing & Communications",       85),
-    ("marketingcomm",       "Marketing & Communications",       85),
-
-    # Director of Sales & Marketing (DOSM)
-    ("dosm",                "Director of Sales & Marketing",    90),
-    ("dsom",                "Director of Sales & Marketing",    88),
-    ("dos",                 "Director of Sales",                85),
-    ("dom",                 "Director of Marketing",            85),
-
-    # General Manager
-    ("gm",                  "General Manager",                  88),
-    ("generalmanager",      "General Manager",                  85),
-    ("general.manager",     "General Manager",                  85),
-    ("manager",             "Manager",                          75),
-
-    # ════════════════════════════════════════════════════
-    # TIER 2 — Ảnh hưởng lớn (Reply 6-10%)
-    # ════════════════════════════════════════════════════
-
-    # Sales
-    ("sm",                  "Sales Manager",                    80),
-    ("salesmanager",        "Sales Manager",                    78),
-    ("sales.manager",       "Sales Manager",                    78),
-    ("sales",               "Sales",                            75),
-    ("salesmarketing",      "Sales & Marketing",                72),
-    ("sales.marketing",     "Sales & Marketing",                72),
-
-    # Digital / Content / Social
-    ("digital",             "Digital Marketing Manager",        78),
-    ("digital.marketing",   "Digital Marketing Manager",        76),
-    ("digitalmarketing",    "Digital Marketing Manager",        76),
-    ("content",             "Content Manager",                  74),
-    ("content.manager",     "Content Manager",                  72),
-    ("social",              "Social Media Manager",             72),
-    ("socialmedia",         "Social Media Manager",             70),
-    ("social.media",        "Social Media Manager",             70),
-
-    # PR & Communications
-    ("pr",                  "PR Manager",                       74),
-    ("publicrelations",     "Public Relations Manager",         72),
-    ("public.relations",    "Public Relations Manager",         70),
-    ("communications",      "Communications Manager",           70),
-    ("comms",               "Communications",                   68),
-
-    # Revenue
-    ("revenue",             "Revenue Manager",                  70),
-    ("rm",                  "Revenue Manager",                  68),
-    ("revenue.manager",     "Revenue Manager",                  68),
-    ("revenuemanagement",   "Revenue Management",               65),
-
-    # Director cấp dưới
-    ("director",            "Director",                         70),
-    ("artdirector",         "Art Director",                     68),
-    ("art.director",        "Art Director",                     68),
-    ("creative",            "Creative Director",                68),
-    ("creativedirector",    "Creative Director",                66),
-    ("brand",               "Brand Manager",                    65),
-    ("brandmanager",        "Brand Manager",                    65),
-
-    # ════════════════════════════════════════════════════
-    # TIER 3 — Có thể forward được (Reply 3-6%)
-    # ════════════════════════════════════════════════════
-
-    ("ecommerce",           "E-Commerce Manager",               62),
-    ("ota",                 "OTA Manager",                      60),
-    ("distribution",        "Distribution Manager",             58),
-    ("partnership",         "Partnership Manager",              58),
-    ("media",               "Media Manager",                    56),
-    ("advertising",         "Advertising",                      55),
-    ("ads",                 "Advertising",                      55),
-    ("admin",               "Admin",                            52),
-    ("office",              "Office Manager",                   50),
-
-    # ════════════════════════════════════════════════════
-    # TIER 4 — Email chung (Reply 1-2%, qua bộ lọc)
-    # ════════════════════════════════════════════════════
-
-    ("info",                "General",                          42),
-    ("contact",             "General",                          40),
-    ("hello",               "General",                          38),
-    ("enquiry",             "Enquiries",                        38),
-    ("enquiries",           "Enquiries",                        38),
-    ("booking",             "Reservations",                     35),
-    ("reservation",         "Reservations",                     35),
-    ("reservations",        "Reservations",                     33),
-
-    # ════════════════════════════════════════════════════
-    # KHÔNG GỬI — Lễ tân / Bộ phận không có quyền ảnh
-    # ════════════════════════════════════════════════════
-    # reception@   frontdesk@   letan@   housekeeping@
-    # restaurant@  fnb@         spa@     concierge@
+    # Hòm thư chính thức luôn tồn tại 99%
+    ("info",                "Phòng Quản Lý & Tiếp Nhận",        96),
+    ("reservation",         "Phòng Đặt Phòng & Kinh Doanh",     94),
+    ("reservations",        "Phòng Đặt Phòng & Kinh Doanh",     94),
+    ("booking",             "Phòng Đặt Phòng & Booking",        92),
+    ("bookings",            "Phòng Đặt Phòng & Booking",        92),
+    ("contact",             "Bộ Phận Liên Hệ & CSKH",           90),
+    ("sales",               "Phòng Kinh Doanh (Sales Dept)",    88),
+    ("gm",                  "Tổng Giám Đốc (GM)",               85),
+    ("marketing",           "Phòng Marketing",                  82),
+    ("dosm",                "Director of Sales & Marketing",    80),
+    ("stay",                "Ban Quản Lý Lưu Trú",              78),
+    ("hello",               "Lễ Tân & Đón Tiếp",                75),
 ]
 
 # Chức vụ ưu tiên — người quyết định mua ảnh

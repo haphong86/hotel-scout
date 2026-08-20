@@ -702,24 +702,41 @@ with tab_auto:
             .filter(Contact.email.isnot(None), Contact.email != "", ~Contact.email_logs.any())
             .filter(Contact.verify_status.in_(["VALID", "LIKELY"]))
             .order_by(Contact.confidence.desc())
-            .limit(auto_email_limit * 3)
+            .limit(auto_email_limit * 15)
             .all()
         )
 
-        # Lọc sạch 100%: Tuyệt đối không gửi vào MXH (facebook, booking, agoda...) hoặc domain rác
+        # LỌC NGHIÊM NGẶT: 1 Khách sạn = Gửi 1 email DUY NHẤT (Nếu hết thì chuyển sang KS khác)
+        seen_hotel_ids = set()
+        seen_emails = set()
         pending = []
         for c in raw_pending:
-            dom = c.email.split("@")[-1].lower().strip()
-            if not is_blacklisted_domain(dom):
-                pending.append(c)
+            h = c.hotel
+            if not h or h.id in seen_hotel_ids:
+                continue
+            # Nếu KS này đã từng gửi email trước đây rồi -> Bỏ qua, lấy KS khác
+            if h.status in ["Đã liên hệ", "Đang liên hệ"] or (h.email_logs and len(h.email_logs) > 0):
+                continue
+
+            c_email = c.email.lower().strip()
+            if c_email in seen_emails:
+                continue
+
+            dom = c_email.split("@")[-1].strip()
+            if is_blacklisted_domain(dom):
+                continue
+
+            seen_hotel_ids.add(h.id)
+            seen_emails.add(c_email)
+            pending.append(c)
             if len(pending) >= auto_email_limit:
                 break
 
         sent_count = 0
         if not pending:
-            add_log("  ℹ️ Không có email mới đủ chuẩn sạch (hoặc đã gửi hết).")
+            add_log("  ℹ️ Không có khách sạn mới cần gửi (hoặc tất cả KS đã được liên hệ rồi).")
         else:
-            add_log(f"  📬 Sẵn sàng gửi {len(pending)} email sạch 100%...")
+            add_log(f"  📬 Sẵn sàng gửi {len(pending)} email tới {len(pending)} khách sạn khác nhau 100%...")
             # Nạp 2 mẫu template: Tiếng Việt (nội địa) & Tiếng Anh (quốc tế / chuỗi 4-5 sao)
             with open("campaign/templates/email_01_intro.html", "r", encoding="utf-8") as f:
                 tpl_vi = f.read()
