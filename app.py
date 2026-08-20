@@ -1733,7 +1733,7 @@ with tab_logs:
 
     session_log = get_session()
     all_email_logs = session_log.query(EmailLog).order_by(EmailLog.sent_at.desc()).limit(150).all()
-    all_scan_logs = session_log.query(ScanLog).order_by(ScanLog.created_at.desc()).limit(50).all()
+    all_scan_logs = session_log.query(ScanLog).order_by(ScanLog.scanned_at.desc()).limit(50).all()
     session_log.close()
 
     # Thống kê nhanh
@@ -1777,15 +1777,15 @@ with tab_logs:
         else:
             scan_rows = []
             for s in all_scan_logs:
-                dur_str = f"{s.duration_seconds:.1f}s" if s.duration_seconds else "—"
+                dur_str = f"{s.duration_s}s" if s.duration_s else "—"
                 scan_rows.append({
-                    "Thời gian": s.created_at.strftime("%d/%m/%Y %H:%M:%S") if s.created_at else "—",
+                    "Thời gian": s.scanned_at.strftime("%d/%m/%Y %H:%M:%S") if s.scanned_at else "—",
                     "Thành phố": s.cities or "—",
-                    "Tìm thấy": s.hotels_found,
-                    "Mới lưu": s.hotels_new,
-                    "Bị trùng": s.hotels_skipped,
+                    "Tìm thấy": s.total_found,
+                    "Mới lưu": s.new_saved,
+                    "Bị trùng": s.skipped,
                     "Thời lượng": dur_str,
-                    "Kích hoạt": s.trigger_type or "Thủ công",
+                    "Kích hoạt": s.triggered_by or "Thủ công",
                 })
             df_slog = pd.DataFrame(scan_rows)
             st.dataframe(df_slog, use_container_width=True, height=400)
