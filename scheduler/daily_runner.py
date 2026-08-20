@@ -53,7 +53,7 @@ def run_daily_autopilot_job():
     skipped_hotels = 0
     from scanner.overpass_scanner import scan_city_osm
     from scanner.google_maps_scraper import search_google_maps
-    from scanner.early_signals import scrape_booking_opening_soon, scrape_recruitment_signals
+    from scanner.early_signals import scrape_booking_opening_soon, scrape_hotel_job_postings
 
     for city in target_cities:
         try:
@@ -61,7 +61,7 @@ def run_daily_autopilot_job():
             osm = scan_city_osm(city, radius_km=15)
             gmaps = search_google_maps(f"khách sạn mới {city}", city)
             b_soon = scrape_booking_opening_soon(city)
-            jobs = scrape_recruitment_signals(city)
+            jobs = scrape_hotel_job_postings(city)
 
             all_found = osm + gmaps + b_soon + jobs
             total_found += len(all_found)
