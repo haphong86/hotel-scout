@@ -232,15 +232,35 @@ def extract_title_from_context(context: str) -> str:
     return ""
 
 
-# ═══════════════════════════════════════════════════════════════
-# PHƯƠNG PHÁP 2: Đoán pattern + xác minh SMTP
-# ═══════════════════════════════════════════════════════════════
+PLATFORM_BLACKLIST_DOMAINS = {
+    "facebook.com", "m.facebook.com", "fb.com", "instagram.com", "tiktok.com",
+    "booking.com", "agoda.com", "tripadvisor.com", "tripadvisor.com.vn", "airbnb.com", "airbnb.com.vn",
+    "traveloka.com", "expedia.com", "hotels.com", "google.com", "google.com.vn",
+    "youtube.com", "zalo.me", "wixsite.com", "wordpress.com", "blogspot.com",
+    "apple.com", "microsoft.com", "sentry.io", "github.com", "cloudflare.com",
+    "twitter.com", "x.com", "linkedin.com", "pinterest.com",
+    "mail.google.com", "googlemail.com", "gmail.com", "yahoo.com", "hotmail.com", "outlook.com"
+}
+
+
+def is_blacklisted_domain(domain: str) -> bool:
+    """Kiểm tra tên miền có phải là MXH hoặc sàn OTA (không phải domain riêng của KS)"""
+    if not domain:
+        return True
+    domain_clean = domain.lower().strip().replace("www.", "")
+    for blocked in PLATFORM_BLACKLIST_DOMAINS:
+        if domain_clean == blocked or domain_clean.endswith("." + blocked):
+            return True
+    return False
+
 
 def get_domain_from_website(website: str) -> str:
     """Trích domain từ URL"""
     try:
         parsed = urlparse(website if website.startswith("http") else "https://" + website)
-        domain = parsed.netloc.replace("www.", "")
+        domain = parsed.netloc.replace("www.", "").lower().strip()
+        if is_blacklisted_domain(domain):
+            return ""
         return domain
     except Exception:
         return ""
@@ -273,8 +293,9 @@ def guess_emails_by_pattern(domain: str, name: str = "") -> List[Dict]:
     """
     Đoán email theo thứ tự ưu tiên cấp bậc quyết định.
     marketing@ → dosm@ → gm@ → digital@ → ... → info@ (cuối)
+    TUYỆT ĐỐI KHÔNG đoán trên domain MXH, OTA, hoặc domain rác!
     """
-    if not domain:
+    if not domain or is_blacklisted_domain(domain):
         return []
 
     results = []

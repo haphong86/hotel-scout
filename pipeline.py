@@ -15,54 +15,15 @@ load_dotenv()
 from database.models import get_session, Hotel, Contact, init_db
 from extractor.free_email_finder import (
     find_emails_free, guess_emails_by_pattern,
-    get_domain_from_website, EMAIL_PATTERNS_RANKED
+    get_domain_from_website, is_blacklisted_domain, EMAIL_PATTERNS_RANKED
 )
-from extractor.email_verifier import verify_email, VerifyResult
-from sqlalchemy.orm import joinedload
-from typing import List, Dict, Callable, Optional
+from extractor.email_verifier import verify_email, check_mx, VerifyResult
 
-
-# ═══════════════════════════════════════════════════════════════
-# BƯỚC 1: Chọn KS cần xử lý
-# ═══════════════════════════════════════════════════════════════
-
-def get_hotels_to_process(
-    cities: List[str] = None,
-    limit: int = 50,
-    only_without_contact: bool = True,
-) -> List[Hotel]:
-    """Lấy danh sách KS cần tìm email"""
-    session = get_session()
-    try:
-        q = session.query(Hotel).options(joinedload(Hotel.contacts))
-
-        if cities:
-            q = q.filter(Hotel.city.in_(cities))
-
-        if only_without_contact:
-            q = q.filter(~Hotel.contacts.any())
-
-        # Ưu tiên KS có website (dễ tìm email hơn)
-        q = q.order_by(
-            Hotel.website.desc(),   # Có website lên trước
-            Hotel.rating.desc(),    # Rating cao = KS chuyên nghiệp hơn
-        )
-
-        hotels = q.limit(limit).all()
-        session.expunge_all()  # Detach để dùng ngoài session
-        return hotels
-    finally:
-        session.close()
-
-
-# ═══════════════════════════════════════════════════════════════
-# BƯỚC 2: Tìm domain + Đoán email
-# ═══════════════════════════════════════════════════════════════
 
 def generate_candidates(hotel: Hotel) -> List[Dict]:
     """
     Sinh danh sách email ứng viên cho 1 KS.
-    Ưu tiên: crawl website → đoán pattern từ domain → google search
+    Ưu tiên: crawl website → đoán pattern từ domain CHÍNH HÃNG (đã qua check MX) → google search
     """
     candidates = []
 
@@ -70,34 +31,44 @@ def generate_candidates(hotel: Hotel) -> List[Dict]:
     if hotel.website:
         domain = get_domain_from_website(hotel.website)
 
-        # Crawl website tìm email hiện trên trang
-        try:
-            from extractor.free_email_finder import crawl_website_emails
-            found = crawl_website_emails(hotel.website)
-            candidates.extend(found)
-        except Exception:
-            pass
+        # Crawl website tìm email hiện trên trang (nếu không phải trang MXH)
+        if domain and not is_blacklisted_domain(domain):
+            try:
+                from extractor.free_email_finder import crawl_website_emails
+                found = crawl_website_emails(hotel.website)
+                candidates.extend(found)
+            except Exception:
+                pass
 
-        # Đoán 61 patterns từ domain
-        if domain:
-            patterns = guess_emails_by_pattern(domain)
-            # Chỉ thêm email chưa có trong candidates
-            existing_emails = {c["email"] for c in candidates}
-            for p in patterns:
-                if p["email"] not in existing_emails:
-                    candidates.append(p)
+            # BẮT BUỘC: Kiểm tra domain có mail server (MX) thực tế không mới đoán 61 pattern
+            if check_mx(domain):
+                patterns = guess_emails_by_pattern(domain)
+                existing_emails = {c["email"] for c in candidates}
+                for p in patterns:
+                    if p["email"] not in existing_emails:
+                        candidates.append(p)
     else:
-        # Không có website → dùng Google search để tìm domain/email
+        # Không có website → dùng Google search để tìm email thực tế
         try:
             from extractor.free_email_finder import google_search_email
             found = google_search_email(hotel.name)
-            candidates.extend(found)
+            for f in found:
+                f_dom = f.get("email", "").split("@")[-1].lower()
+                if not is_blacklisted_domain(f_dom):
+                    candidates.append(f)
         except Exception:
             pass
 
+    # Lọc lại một lần nữa: tuyệt đối không chứa domain MXH hoặc rác
+    clean_candidates = []
+    for c in candidates:
+        dom = c.get("email", "").split("@")[-1].lower()
+        if not is_blacklisted_domain(dom):
+            clean_candidates.append(c)
+
     # Sắp xếp theo confidence cao nhất trước
-    candidates.sort(key=lambda x: x.get("confidence", 0), reverse=True)
-    return candidates
+    clean_candidates.sort(key=lambda x: x.get("confidence", 0), reverse=True)
+    return clean_candidates
 
 
 # ═══════════════════════════════════════════════════════════════

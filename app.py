@@ -666,24 +666,34 @@ with tab_auto:
         add_log("🚀 BẮT ĐẦU GIAI ĐOẠN 3: Gửi email chiến dịch...")
 
         from campaign.email_sender import send_email
+        from extractor.free_email_finder import is_blacklisted_domain
         from jinja2 import Template
 
         session = get_session()
-        pending = (
+        raw_pending = (
             session.query(Contact)
             .join(Hotel)
             .filter(Contact.email.isnot(None), Contact.email != "", ~Contact.email_logs.any())
-            .filter(Contact.verify_status.in_(["VALID", "LIKELY", "UNVERIFIED"]))
+            .filter(Contact.verify_status.in_(["VALID", "LIKELY"]))
             .order_by(Contact.confidence.desc())
-            .limit(auto_email_limit)
+            .limit(auto_email_limit * 3)
             .all()
         )
 
+        # Lọc sạch 100%: Tuyệt đối không gửi vào MXH (facebook, booking, agoda...) hoặc domain rác
+        pending = []
+        for c in raw_pending:
+            dom = c.email.split("@")[-1].lower().strip()
+            if not is_blacklisted_domain(dom):
+                pending.append(c)
+            if len(pending) >= auto_email_limit:
+                break
+
         sent_count = 0
         if not pending:
-            add_log("  ℹ️ Không có contact mới cần gửi (hoặc đã gửi hết).")
+            add_log("  ℹ️ Không có email mới đủ chuẩn sạch (hoặc đã gửi hết).")
         else:
-            add_log(f"  📬 Sẵn sàng gửi {len(pending)} email...")
+            add_log(f"  📬 Sẵn sàng gửi {len(pending)} email sạch 100%...")
             # Sử dụng template Mẫu 1 (Hero Intro) hoặc xoay vòng
             tpl_path = "campaign/templates/email_01_intro.html"
             with open(tpl_path, "r", encoding="utf-8") as f:
