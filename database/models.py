@@ -147,6 +147,33 @@ class ScanLog(Base):
         return f"<ScanLog {self.cities} +{self.new_saved} new>"
 
 
+class PreOpeningProject(Base):
+    """Radar phát hiện Khách sạn & Resort sắp khai trương trước 3-6 tháng"""
+    __tablename__ = "pre_opening_projects"
+
+    id             = Column(Integer, primary_key=True, autoincrement=True)
+    name           = Column(String(255), nullable=False)
+    brand_chain    = Column(String(100))        # Marriott, Accor, Hilton, Fusion, Boutique...
+    city           = Column(String(100), nullable=False)
+    province       = Column(String(100))
+    address        = Column(Text)
+    est_opening    = Column(String(100))        # "Q4/2026", "Tháng 12/2026", "Cuối năm 2026"
+    stage          = Column(String(100))        # "Hoàn thiện nội thất", "Pre-Opening Tuyển GM", "Sắp mở bán", "Cất nóc"
+    priority       = Column(String(50), default="🔴 RẤT NÓNG - CẦN CHỤP NGAY")  # 🔴 RẤT NÓNG, 🟠 TIỀM NĂNG 3T, 🟡 TIỀM NĂNG 6T
+    source         = Column(String(100))        # "Hoteljob Pre-Opening", "Booking Opening Soon", "Báo Xây Dựng", "LinkedIn"
+    source_url     = Column(String(500))
+    contact_name   = Column(String(200))        # GM / DOSM / Chủ Đầu Tư
+    contact_role   = Column(String(200))
+    contact_email  = Column(String(300))
+    contact_phone  = Column(String(50))
+    notes          = Column(Text)
+    status         = Column(String(50), default="Chưa tiếp cận")  # "Chưa tiếp cận", "Đã gửi Email Launching", "Đang đàm phán", "Đã chốt hợp đồng"
+    scanned_at     = Column(DateTime, default=datetime.now)
+
+    def __repr__(self):
+        return f"<PreOpeningProject {self.name} ({self.city}) - {self.est_opening}>"
+
+
 def init_db():
     """Khởi tạo database và tạo các bảng"""
     os.makedirs("database", exist_ok=True)

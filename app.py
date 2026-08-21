@@ -571,8 +571,9 @@ c5.metric("OPEN RATE",       stats["open_rate"])
 st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
 
 # ── TABS ─────────────────────────────────────────────────────
-tab_auto, tab1, tab2, tab3, tab4, tab_logs = st.tabs([
+tab_auto, tab_radar, tab1, tab2, tab3, tab4, tab_logs = st.tabs([
     "🚀 1-CLICK AUTOPILOT",
+    "🔭 PRE-OPENING RADAR",
     "SCANNER",
     "CONTACTS",
     "EMAIL CAMPAIGN",
@@ -976,6 +977,202 @@ with tab_auto:
             f"• Email đã gửi: **{sent_count} thư** (từ sales@haphong.com)  \n"
             f"• Thời gian chạy: **{elapsed} giây**"
         )
+
+
+# ─────────────────────────────────────────────────────────────
+# TAB: PRE-OPENING RADAR (Phát hiện Khách sạn sắp khai trương)
+# ─────────────────────────────────────────────────────────────
+with tab_radar:
+    st.markdown("""
+    <div style="background: linear-gradient(135deg, #181510 0%, #0d0d0d 100%);
+                border: 1px solid #c9a96e; border-radius: 4px; padding: 22px 26px; margin-bottom: 24px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;">
+        <div>
+          <div style="font-size:10px;letter-spacing:3px;color:#c9a96e;text-transform:uppercase;font-weight:600;">
+            HỆ THỐNG TÌNH BÁO TIỀN KHAI TRƯƠNG (PRE-OPENING INTELLIGENCE)
+          </div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:26px;color:#f0ebe3;margin:4px 0 6px;">
+            Radar Khách Sạn & Resort Sắp Mở Cửa (Trước 3–6 Tháng)
+          </div>
+          <div style="font-size:12px;color:#999;max-width:750px;line-height:1.6;">
+            Quét đa nguồn 24/7: <b>Tin tuyển dụng GM Pre-Opening (Hoteljob/TopCV)</b>, <b>Dự án quy hoạch nghỉ dưỡng</b>, <b>Mục 'Opening Soon' chuỗi Marriott / Accor / Fusion</b>. Tiếp cận Chủ đầu tư & GM khi công trình đang hoàn thiện nội thất để chốt hợp đồng chụp ảnh Launching trước mọi đối thủ!
+          </div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:10px;letter-spacing:1px;color:#4a7c59;text-transform:uppercase;font-weight:bold;">
+            ● Radar Daemon: ACTIVE 24/7
+          </div>
+        </div>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    from database.models import PreOpeningProject
+    from radar.pre_opening_radar import run_pre_opening_radar
+
+    session_r = get_session()
+    all_radar_projects = session_r.query(PreOpeningProject).order_by(PreOpeningProject.scanned_at.desc()).all()
+    session_r.close()
+
+    # Thanh điều khiển Radar
+    r_col1, r_col2, r_col3 = st.columns([2, 1, 1])
+    with r_col1:
+        st.info("💡 **Giai đoạn Vàng:** Khi khách sạn đang tuyển GM hoặc hoàn thiện nội thất là lúc họ **bắt buộc phải có bộ ảnh kiến trúc chuẩn 60 ngày trước ngày khai trương** để mở bán OTA & PR báo chí.")
+    with r_col2:
+        scan_radar_btn = st.button("🔍 Quét Radar Tín Hiệu Mới", type="primary", use_container_width=True, help="Quét tín hiệu dự án mới từ Hoteljob, Booking và Báo Đầu Tư")
+    with r_col3:
+        send_tg_radar_btn = st.button("📱 Bắn Báo Cáo Về Telegram", use_container_width=True, help="Bắn danh sách các dự án Hot về Bot Telegram")
+
+    if scan_radar_btn:
+        with st.spinner("🔭 Đang quét radar dự án mới trên toàn quốc..."):
+            res_r = run_pre_opening_radar(selected_cities if selected_cities else None, notify_telegram=True)
+            st.success(f"🎉 Radar hoàn tất! Tìm thấy **{res_r['total_radar_projects']} dự án**, trong đó có **{res_r['hot_projects_count']} dự án RẤT NÓNG**!")
+            st.rerun()
+
+    if send_tg_radar_btn:
+        from notifications.telegram_bot import send_telegram_message, get_chat_id_from_bot
+        cid = get_chat_id_from_bot()
+        if not cid:
+            st.warning("⚠️ Hãy mở Telegram tìm bot **@HaPhongScanHotelResort_Bot** và bấm **START** trước!")
+        else:
+            session_r = get_session()
+            hot_projs = session_r.query(PreOpeningProject).filter(PreOpeningProject.priority.like("%RẤT NÓNG%")).limit(5).all()
+            session_r.close()
+            msg_lines = ["🔭 *[HÀ PHONG VISUALS] TỔNG HỢP DỰ ÁN PRE-OPENING NÓNG NHẤT:*", "━━━━━━━━━━━━━━━━━━━━━"]
+            for hp in hot_projs:
+                msg_lines.append(f"🏨 *{hp.name}* ({hp.city})\n⏳ Mở cửa: *{hp.est_opening}* · {hp.stage}\n👔 Đầu mối: {hp.contact_role or 'GM'} {f'(`{hp.contact_email}`)' if hp.contact_email else ''}\n")
+            msg_lines.append("━━━━━━━━━━━━━━━━━━━━━\n💡 Hãy tiếp cận sớm khi dự án đang làm nội thất!")
+            send_telegram_message("\n".join(msg_lines), chat_id=cid)
+            st.success("✅ Đã bắn báo cáo tổng hợp radar về Telegram của anh!")
+
+    # Thống kê nhanh
+    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+    hot_p_count = sum(1 for p in all_radar_projects if "RẤT NÓNG" in (p.priority or ""))
+    medium_p_count = sum(1 for p in all_radar_projects if "3-6 THÁNG" in (p.priority or ""))
+    long_p_count = len(all_radar_projects) - hot_p_count - medium_p_count
+
+    m_r1, m_r2, m_r3, m_r4 = st.columns(4)
+    m_r1.metric("TỔNG DỰ ÁN ĐANG THEO DÕI", len(all_radar_projects))
+    m_r2.metric("🔴 RẤT NÓNG (1–3 THÁNG)", hot_p_count)
+    m_r3.metric("🟠 TIỀM NĂNG (3–6 THÁNG)", medium_p_count)
+    m_r4.metric("🟡 QUY HOẠCH (6–12 THÁNG)", max(0, long_p_count))
+
+    st.markdown("---")
+
+    # Bộ lọc & Tìm kiếm dự án
+    f_rc1, f_rc2 = st.columns(2)
+    search_r = f_rc1.text_input("🔍 Tìm theo tên dự án / khách sạn", placeholder="Nobu, Cham Villas, The Anam...")
+    city_r_opts = sorted(list(set(p.city for p in all_radar_projects if p.city)))
+    city_r_sel = f_rc2.multiselect("📍 Lọc theo Thành phố", options=city_r_opts)
+
+    filtered_projects = all_radar_projects
+    if search_r:
+        filtered_projects = [p for p in filtered_projects if search_r.lower() in p.name.lower()]
+    if city_r_sel:
+        filtered_projects = [p for p in filtered_projects if p.city in city_r_sel]
+
+    st.markdown(f"**🏗️ Hiển thị {len(filtered_projects)} Dự Án Tiền Khai Trương:**")
+
+    for p in filtered_projects:
+        priority_color = "#e63946" if "RẤT NÓNG" in (p.priority or "") else "#e09f3e"
+        with st.expander(f"{p.priority} · 🏨 {p.name.upper()}  ·  📍 {p.city}  (⏳ Khai trương: {p.est_opening})"):
+            col_d1, col_d2 = st.columns([3, 1])
+            with col_d1:
+                st.markdown(f"""
+                **Tập đoàn / Chuỗi:** `{p.brand_chain or 'Independent'}`  ·  **Địa chỉ:** {p.address or 'Đang cập nhật'}  
+                **Giai đoạn thi công:** 🏗️ *{p.stage or 'Đang hoàn thiện'}*  
+                **Nguồn phát hiện:** `{p.source or 'Radar'}`  
+                **Ghi chú chiến lược:** {p.notes or '—'}  
+                **Đầu mối liên hệ:** 👔 **{p.contact_role or 'GM / Ban Quản Lý'}** {f'· Email: `{p.contact_email}`' if p.contact_email else ''} {f'· SĐT: `{p.contact_phone}`' if p.contact_phone else ''}
+                """)
+            with col_d2:
+                st.markdown(f"<div style='font-size:11px;color:{priority_color};font-weight:bold;margin-bottom:8px;'>TRẠNG THÁI: {p.status}</div>", unsafe_allow_html=True)
+                if p.contact_email:
+                    send_launch_btn = st.button("⚡ Gửi Email Launching", key=f"launch_mail_{p.id}", help="Gửi email bản thảo Visual Identity Launching dành riêng cho dự án sắp mở")
+                    if send_launch_btn:
+                        from campaign.email_sender import send_email
+                        from jinja2 import Template
+                        with open("campaign/templates/email_pre_opening.html", "r", encoding="utf-8") as f:
+                            tpl_pre = f.read()
+                        subj = f"[{p.name}] — Giải pháp Visual & Bộ ảnh Kiến trúc Launching khai trương tại {p.city}"
+                        body = Template(tpl_pre).render(
+                            hotel_name=p.name,
+                            contact_name=p.contact_name or p.contact_role or "Ban Lãnh Đạo",
+                            city=p.city,
+                            to_email=p.contact_email,
+                            subject=subj,
+                        )
+                        res = send_email(p.contact_email, p.contact_name or "", subj, body)
+                        if res.get("success"):
+                            session_up = get_session()
+                            db_p = session_up.query(PreOpeningProject).get(p.id)
+                            if db_p:
+                                db_p.status = "Đã gửi Email Launching"
+                                session_up.commit()
+                            session_up.close()
+                            st.success(f"✅ Đã gửi thư đề xuất Launching tới {p.contact_email}!")
+                            st.rerun()
+                        else:
+                            st.error(f"⚠️ Lỗi gửi: {res.get('error')}")
+
+                alert_single_btn = st.button("📱 Bắn Dự Án Về Telegram", key=f"tg_single_{p.id}")
+                if alert_single_btn:
+                    from notifications.telegram_bot import send_telegram_message
+                    p_loc = f"{p.city} · {p.address}" if p.address else p.city
+                    msg = (
+                        f"🔭 *[RADAR DỰ ÁN PRE-OPENING]*\n"
+                        f"━━━━━━━━━━━━━━━━━━━━━\n"
+                        f"🏨 *Dự án:* `{p.name}`\n"
+                        f"📍 *Vị trí:* {p_loc}\n"
+                        f"⏳ *Dự kiến mở:* *{p.est_opening}*\n"
+                        f"🏗️ *Giai đoạn:* {p.stage}\n"
+                        f"🎯 *Mức độ:* {p.priority}\n"
+                        f"👔 *Đầu mối:* {p.contact_role or 'GM'} {f'(`{p.contact_email}`)' if p.contact_email else ''}\n"
+                        f"━━━━━━━━━━━━━━━━━━━━━\n"
+                        f"💡 *Gợi ý:* Tiếp cận làm việc về gói ảnh Hoàng hôn / Drone trước ngày Launching!"
+                    )
+                    send_telegram_message(msg.strip())
+                    st.success("✅ Đã bắn chi tiết dự án về Telegram!")
+
+    # Thêm dự án Pre-Opening thủ công
+    st.markdown("---")
+    with st.expander("➕ Thêm Dự Án Pre-Opening Mới Vào Radar"):
+        with st.form("add_pre_opening_form"):
+            col_a1, col_a2 = st.columns(2)
+            p_name_in = col_a1.text_input("Tên Dự án / Resort / Khách sạn *")
+            p_chain_in = col_a2.text_input("Tập đoàn / Chuỗi thương hiệu (Marriott, Accor, Fusion, Boutique...)")
+            
+            col_a3, col_a4 = st.columns(2)
+            p_city_in = col_a3.text_input("Thành phố / Tỉnh *", placeholder="Đà Nẵng, Hội An, Phú Quốc...")
+            p_opening_in = col_a4.text_input("Dự kiến khai trương", placeholder="Q4/2026, Tháng 12/2026...")
+
+            col_a5, col_a6 = st.columns(2)
+            p_stage_in = col_a5.selectbox("Giai đoạn thi công", ["Đang hoàn thiện nội thất", "Pre-Opening Tuyển GM/Lãnh đạo", "Sắp mở bán phòng (Booking)", "Cất nóc / Xây dựng"])
+            p_priority_in = col_a6.selectbox("Mức độ ưu tiên", ["🔴 RẤT NÓNG - CẦN CHỤP NGAY", "🟠 TIỀM NĂNG 3-6 THÁNG", "🟡 TIỀM NĂNG 6-12 THÁNG"])
+
+            col_a7, col_a8 = st.columns(2)
+            p_cname_in = col_a7.text_input("Tên người liên hệ (GM / Chủ đầu tư / DOSM)")
+            p_cemail_in = col_a8.text_input("Email liên hệ")
+
+            p_notes_in = st.text_area("Ghi chú đặc điểm kiến trúc / visual cần chụp")
+
+            if st.form_submit_button("Lưu Dự Án Vào Radar", type="primary"):
+                if p_name_in and p_city_in:
+                    session_add = get_session()
+                    session_add.add(PreOpeningProject(
+                        name=p_name_in, brand_chain=p_chain_in, city=p_city_in,
+                        province=p_city_in, est_opening=p_opening_in,
+                        stage=p_stage_in, priority=p_priority_in,
+                        contact_name=p_cname_in, contact_role="GM / Ban Quản Lý",
+                        contact_email=p_cemail_in, notes=p_notes_in,
+                        source="Thêm thủ công", status="Chưa tiếp cận", scanned_at=datetime.now()
+                    ))
+                    session_add.commit()
+                    session_add.close()
+                    st.success(f"✅ Đã thêm dự án: {p_name_in}")
+                    st.rerun()
+                else:
+                    st.error("Tên dự án và thành phố là bắt buộc!")
 
 
 # ─────────────────────────────────────────────────────────────

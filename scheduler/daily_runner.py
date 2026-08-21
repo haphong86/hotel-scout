@@ -46,6 +46,13 @@ def run_daily_autopilot_job():
         "Quy Nhơn", "Tuy Hòa", "Nha Trang", "Cam Ranh",
         "Phan Thiết", "Đà Lạt", "Phú Quốc"
     ]
+    # 0. Quét Tình Báo Pre-Opening Radar (Khách sạn sắp khai trương trước 3-6 tháng)
+    try:
+        from radar.pre_opening_radar import run_pre_opening_radar
+        radar_res = run_pre_opening_radar(target_cities, notify_telegram=True)
+        print(f"  🔭 Pre-Opening Radar: {radar_res['total_radar_projects']} dự án đang theo dõi ({radar_res['hot_projects_count']} dự án RẤT NÓNG).")
+    except Exception as e:
+        print(f"  ⚠️ Pre-Opening Radar lỗi: {e}")
 
     session = get_session()
     total_found = 0
