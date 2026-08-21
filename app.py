@@ -35,6 +35,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 from config import VIETNAM_REGIONS, APP_CONFIG, EMAIL_CONFIG
 from database.models import init_db, get_session, Hotel, Contact, EmailLog, Campaign, ScanLog
+from sqlalchemy.orm import joinedload
 from scheduler.daily_runner import start_scheduler
 
 # Khởi động bộ đếm giờ tự động 09:00 AM chạy ngầm
