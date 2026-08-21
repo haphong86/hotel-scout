@@ -60,7 +60,7 @@ if "track" in params:
             dest_url = params.get("dest", "https://haphong.com")
             record_email_click(log_id_val, dest_url)
             st.markdown(f'<meta http-equiv="refresh" content="0; url={dest_url}" />', unsafe_allow_html=True)
-            st.markdown(f'<p style="color:#c9a96e; text-align:center; margin-top:50px;">Đang chuyển hướng tới <a href="{dest_url}">{dest_url}</a>...</p>', unsafe_allow_html=True)
+            st.markdown(f'<p style="color:#E50914; text-align:center; margin-top:50px;">Đang chuyển hướng tới <a href="{dest_url}">{dest_url}</a>...</p>', unsafe_allow_html=True)
             st.stop()
 
 # ── Cấu hình trang ──────────────────────────────────────────
@@ -72,291 +72,191 @@ st.set_page_config(
 )
 
 # ── CSS — Hà Phong Visuals Design System ────────────────────
-# Palette: #0d0d0d bg · #c9a96e gold · #f0ebe3 cream · #1a1a1a dark
+# Palette: #0d0d0d bg · #E50914 gold · #FFFFFF cream · #1a1a1a dark
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Inter:wght@300;400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap');
 
-/* ── Global ── */
+/* ── Global Black, Red & White Brand Theme ── */
 html, body, [class*="css"] {
   font-family: 'Inter', sans-serif;
-  background-color: #0d0d0d !important;
-  color: #e8e0d0 !important;
+  background-color: #050505 !important;
+  color: #F0F0F0 !important;
 }
 .main .block-container {
-  background: #0d0d0d !important;
-  padding-top: 2rem;
-  max-width: 1400px;
+  background: #050505 !important;
+  padding-top: 1.8rem;
+  max-width: 1440px;
 }
 
 /* ── Sidebar ── */
 [data-testid="stSidebar"] {
-  background: #080808 !important;
-  border-right: 1px solid #2a2a2a !important;
+  background: #000000 !important;
+  border-right: 1px solid #1f1f1f !important;
 }
-[data-testid="stSidebar"] * { color: #b0a898 !important; }
+[data-testid="stSidebar"] * { color: #d0d0d0 !important; }
 [data-testid="stSidebar"] .stSelectbox label,
 [data-testid="stSidebar"] .stMultiSelect label,
 [data-testid="stSidebar"] .stSlider label {
-  color: #c9a96e !important;
+  color: #E50914 !important;
   font-size: 11px !important;
+  font-weight: 600 !important;
   letter-spacing: 1.5px !important;
   text-transform: uppercase !important;
 }
-[data-testid="stSidebar"] hr { border-color: #2a2a2a !important; }
-
-/* ── Sidebar brand header ── */
-.sidebar-brand {
-  text-align: center;
-  padding: 24px 16px 8px;
-  border-bottom: 1px solid #2a2a2a;
-  margin-bottom: 20px;
-}
-.sidebar-brand .brand-name {
-  font-family: 'Cormorant Garamond', serif;
-  font-size: 20px;
-  font-weight: 300;
-  letter-spacing: 3px;
-  color: #f0ebe3 !important;
-  text-transform: uppercase;
-}
-.sidebar-brand .brand-sub {
-  font-size: 9px;
-  letter-spacing: 3px;
-  color: #c9a96e !important;
-  text-transform: uppercase;
-  margin-top: 4px;
-}
-
-/* ── Page header ── */
-.hp-header {
-  border-bottom: 1px solid #2a2a2a;
-  padding-bottom: 20px;
-  margin-bottom: 28px;
-  display: flex;
-  align-items: flex-end;
-  gap: 16px;
-}
-.hp-header .hp-logo-text {
-  font-family: 'Cormorant Garamond', serif;
-  font-size: 36px;
-  font-weight: 300;
-  letter-spacing: 4px;
-  color: #f0ebe3;
-  text-transform: uppercase;
-  line-height: 1;
-}
-.hp-header .hp-gold { color: #c9a96e; }
-.hp-header .hp-subtitle {
-  font-size: 10px;
-  letter-spacing: 2.5px;
-  color: #666;
-  text-transform: uppercase;
-  margin-bottom: 4px;
-}
+[data-testid="stSidebar"] hr { border-color: #222222 !important; }
 
 /* ── Metric cards ── */
-.hp-metric {
-  background: #111 !important;
-  border: 1px solid #2a2a2a;
-  border-top: 2px solid #c9a96e;
-  padding: 20px 16px 16px;
-  border-radius: 2px;
-  text-align: center;
+[data-testid="metric-container"] {
+  background: #111111 !important;
+  border: 1px solid #222222 !important;
+  border-top: 3px solid #E50914 !important;
+  padding: 16px 18px !important;
+  border-radius: 4px !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important;
 }
-.hp-metric .hp-m-num {
-  font-family: 'Cormorant Garamond', serif;
-  font-size: 40px;
-  font-weight: 300;
-  color: #f0ebe3;
-  line-height: 1;
+[data-testid="metric-container"] label {
+  color: #A0A0A0 !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  letter-spacing: 1.5px !important;
+  text-transform: uppercase !important;
 }
-.hp-metric .hp-m-label {
-  font-size: 9px;
-  letter-spacing: 2px;
-  color: #c9a96e;
-  text-transform: uppercase;
-  margin-top: 6px;
+[data-testid="metric-container"] [data-testid="stMetricValue"] {
+  font-family: 'Montserrat', sans-serif !important;
+  font-size: 32px !important;
+  color: #FFFFFF !important;
+  font-weight: 700 !important;
 }
 
 /* ── Tabs ── */
 .stTabs [data-baseweb="tab-list"] {
   background: transparent !important;
-  border-bottom: 1px solid #2a2a2a !important;
-  gap: 0;
+  border-bottom: 1px solid #222222 !important;
+  gap: 8px;
 }
 .stTabs [data-baseweb="tab"] {
   background: transparent !important;
-  color: #666 !important;
-  font-size: 10px !important;
-  letter-spacing: 2px !important;
+  color: #888888 !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 1.5px !important;
   text-transform: uppercase !important;
-  padding: 12px 24px !important;
+  padding: 12px 20px !important;
   border-bottom: 2px solid transparent !important;
   font-family: 'Inter', sans-serif !important;
+  transition: all 0.2s ease-in-out !important;
+}
+.stTabs [data-baseweb="tab"]:hover {
+  color: #FFFFFF !important;
 }
 .stTabs [aria-selected="true"] {
-  color: #c9a96e !important;
-  border-bottom: 2px solid #c9a96e !important;
+  color: #FFFFFF !important;
+  border-bottom: 2px solid #E50914 !important;
+  background: rgba(229, 9, 20, 0.08) !important;
+  border-radius: 4px 4px 0 0 !important;
 }
 
-/* ── Section headings ── */
+/* ── Headings ── */
 h1, h2, h3 {
-  font-family: 'Cormorant Garamond', serif !important;
-  font-weight: 300 !important;
-  letter-spacing: 2px !important;
-  color: #f0ebe3 !important;
+  font-family: 'Montserrat', sans-serif !important;
+  font-weight: 700 !important;
+  letter-spacing: 1px !important;
+  color: #FFFFFF !important;
 }
-h2 { font-size: 24px !important; }
-h3 { font-size: 18px !important; color: #c9a96e !important; }
+h1 { font-size: 28px !important; }
+h2 { font-size: 22px !important; }
+h3 { font-size: 16px !important; color: #E50914 !important; }
 
 /* ── Buttons ── */
 .stButton > button {
-  background: transparent !important;
-  border: 1px solid #c9a96e !important;
-  color: #c9a96e !important;
-  font-size: 10px !important;
-  letter-spacing: 2px !important;
-  text-transform: uppercase !important;
-  padding: 10px 24px !important;
-  border-radius: 1px !important;
-  transition: all 0.3s !important;
-}
-.stButton > button:hover {
-  background: #c9a96e !important;
-  color: #0d0d0d !important;
-}
-.stButton > button[kind="primary"] {
-  background: #c9a96e !important;
-  color: #0d0d0d !important;
-  border: none !important;
-  font-weight: 500 !important;
-}
-.stButton > button[kind="primary"]:hover {
-  background: #b8935a !important;
-}
-
-/* ── Info/warning boxes ── */
-.stAlert {
-  background: #111 !important;
-  border: 1px solid #2a2a2a !important;
-  border-left: 3px solid #c9a96e !important;
-  border-radius: 1px !important;
-  color: #b0a898 !important;
-}
-[data-testid="stNotification"] {
-  background: #111 !important;
-}
-
-/* ── Dataframe / table ── */
-[data-testid="stDataFrame"] {
-  border: 1px solid #2a2a2a !important;
-}
-.stDataFrame thead th {
-  background: #111 !important;
-  color: #c9a96e !important;
-  font-size: 10px !important;
+  background: #161616 !important;
+  border: 1px solid #333333 !important;
+  color: #FFFFFF !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
   letter-spacing: 1.5px !important;
   text-transform: uppercase !important;
-  border-bottom: 1px solid #2a2a2a !important;
+  padding: 10px 20px !important;
+  border-radius: 4px !important;
+  transition: all 0.2s !important;
 }
-.stDataFrame tbody tr { background: #0d0d0d !important; }
-.stDataFrame tbody tr:hover { background: #141414 !important; }
-.stDataFrame tbody td { color: #b0a898 !important; border-color: #1e1e1e !important; }
+.stButton > button:hover {
+  background: #222222 !important;
+  border-color: #E50914 !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 0 10px rgba(229, 9, 20, 0.3) !important;
+}
+.stButton > button[kind="primary"] {
+  background: linear-gradient(135deg, #E50914 0%, #B8000A 100%) !important;
+  color: #FFFFFF !important;
+  border: none !important;
+  font-weight: 700 !important;
+  box-shadow: 0 4px 14px rgba(229, 9, 20, 0.4) !important;
+}
+.stButton > button[kind="primary"]:hover {
+  background: linear-gradient(135deg, #FF1E27 0%, #D90429 100%) !important;
+  box-shadow: 0 6px 20px rgba(229, 9, 20, 0.6) !important;
+}
 
-/* ── Form inputs ── */
+/* ── Inputs ── */
 .stTextInput input, .stSelectbox select, .stTextArea textarea {
-  background: #111 !important;
-  border: 1px solid #2a2a2a !important;
-  color: #e8e0d0 !important;
-  border-radius: 1px !important;
+  background: #111111 !important;
+  border: 1px solid #282828 !important;
+  color: #FFFFFF !important;
+  border-radius: 4px !important;
 }
-.stTextInput input:focus {
-  border-color: #c9a96e !important;
-  box-shadow: 0 0 0 1px #c9a96e33 !important;
+.stTextInput input:focus, .stSelectbox select:focus, .stTextArea textarea:focus {
+  border-color: #E50914 !important;
+  box-shadow: 0 0 0 1px #E50914 !important;
 }
 .stMultiSelect [data-baseweb="select"] {
-  background: #111 !important;
-  border: 1px solid #2a2a2a !important;
+  background: #111111 !important;
+  border: 1px solid #282828 !important;
+  border-radius: 4px !important;
 }
 
 /* ── Progress bar ── */
 .stProgress > div > div {
-  background: #c9a96e !important;
+  background: linear-gradient(90deg, #E50914 0%, #FF3B30 100%) !important;
 }
 
-/* ── Expander ── */
+/* ── Alerts & Expanders ── */
+.stAlert {
+  background: #111111 !important;
+  border: 1px solid #282828 !important;
+  border-left: 4px solid #E50914 !important;
+  border-radius: 4px !important;
+  color: #E0E0E0 !important;
+}
 .streamlit-expanderHeader {
-  background: #111 !important;
-  border: 1px solid #2a2a2a !important;
-  color: #c9a96e !important;
-  font-size: 11px !important;
-  letter-spacing: 1.5px !important;
+  background: #111111 !important;
+  border: 1px solid #222222 !important;
+  color: #FFFFFF !important;
+  font-weight: 600 !important;
 }
 
-/* ── Download button ── */
-.stDownloadButton > button {
-  background: transparent !important;
-  border: 1px solid #2a2a2a !important;
-  color: #666 !important;
-  font-size: 10px !important;
-  letter-spacing: 1.5px !important;
+/* ── Dataframe ── */
+[data-testid="stDataFrame"] {
+  border: 1px solid #222222 !important;
+  border-radius: 4px !important;
 }
-.stDownloadButton > button:hover {
-  border-color: #c9a96e !important;
-  color: #c9a96e !important;
+.stDataFrame thead th {
+  background: #141414 !important;
+  color: #FFFFFF !important;
+  font-weight: 600 !important;
+  border-bottom: 2px solid #E50914 !important;
 }
-
-/* ── Radio ── */
-.stRadio label { color: #b0a898 !important; font-size: 13px !important; }
-.stRadio [data-testid="stMarkdownContainer"] p { color: #b0a898 !important; }
-
-/* ── Divider ── */
-hr { border-color: #2a2a2a !important; }
-
-/* ── Caption / small text ── */
-.stCaption, small { color: #555 !important; font-size: 11px !important; }
-
-/* ── Success/Error states ── */
-.stSuccess { background: #0a1a0a !important; border-left-color: #4a7c59 !important; }
-.stError   { background: #1a0a0a !important; border-left-color: #7c4a4a !important; }
-.stWarning { background: #1a1400 !important; border-left-color: #c9a96e !important; }
-
-/* ── Code blocks ── */
-.stCode, code { background: #111 !important; color: #c9a96e !important; }
+.stDataFrame tbody tr { background: #0A0A0A !important; }
+.stDataFrame tbody tr:hover { background: #161616 !important; }
+.stDataFrame tbody td { color: #E0E0E0 !important; border-color: #1A1A1A !important; }
 
 /* ── Scrollbar ── */
-::-webkit-scrollbar { width: 4px; height: 4px; }
-::-webkit-scrollbar-track { background: #0d0d0d; }
-::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 2px; }
-::-webkit-scrollbar-thumb:hover { background: #c9a96e; }
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: #080808; }
+::-webkit-scrollbar-thumb { background: #262626; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #E50914; }
 
-/* ── Signal priority badges ── */
-.badge-hot    { color: #ff6b6b; font-weight: 600; letter-spacing: 1px; }
-.badge-soon   { color: #c9a96e; font-weight: 600; letter-spacing: 1px; }
-.badge-normal { color: #666;    font-weight: 400; letter-spacing: 1px; }
-
-/* ── Metric row ── */
-[data-testid="metric-container"] {
-  background: #111 !important;
-  border: 1px solid #2a2a2a !important;
-  border-top: 2px solid #c9a96e !important;
-  padding: 16px !important;
-  border-radius: 2px !important;
-}
-[data-testid="metric-container"] label {
-  color: #c9a96e !important;
-  font-size: 9px !important;
-  letter-spacing: 2px !important;
-  text-transform: uppercase !important;
-}
-[data-testid="metric-container"] [data-testid="stMetricValue"] {
-  font-family: 'Cormorant Garamond', serif !important;
-  font-size: 36px !important;
-  color: #f0ebe3 !important;
-  font-weight: 300 !important;
-}
-</style>
 """, unsafe_allow_html=True)
 
 
@@ -501,19 +401,27 @@ CURRENT_VERSION = get_app_version()
 
 # ── SIDEBAR ─────────────────────────────────────────────────
 with st.sidebar:
-    # Brand header
+    # Brand logo & header
+    if os.path.exists("static/logo.jpg"):
+        st.image("static/logo.jpg", use_container_width=True)
+    else:
+        st.markdown("""
+        <div style="text-align:center; padding:16px 0 8px;">
+          <div style="font-family:'Montserrat',sans-serif; font-size:22px; font-weight:800; color:#FFFFFF; letter-spacing:2px;">HÀ PHONG</div>
+          <div style="font-size:11px; letter-spacing:4px; color:#E50914; font-weight:700;">VISUALS</div>
+        </div>
+        """, unsafe_allow_html=True)
+
     st.markdown(f"""
-    <div class="sidebar-brand">
-      <div class="brand-name">Hà Phong</div>
-      <div style="font-size:10px;letter-spacing:2px;color:#c9a96e;margin-top:2px;">VISUALS</div>
-      <div style="font-size:8px;letter-spacing:2px;color:#444;margin-top:8px;text-transform:uppercase;">Hotel Scout System</div>
-      <div style="font-size:10px;color:#c9a96e;background:#18140c;border:1px solid #3d311d;border-radius:4px;padding:5px 8px;margin-top:10px;text-align:center;font-weight:600;letter-spacing:0.5px;">
+    <div style="margin-bottom:20px; text-align:center;">
+      <div style="font-size:8px;letter-spacing:2px;color:#888;margin-top:4px;text-transform:uppercase;">Hotel Scout System</div>
+      <div style="font-size:10px;color:#FFFFFF;background:#1A0506;border:1px solid #E50914;border-radius:4px;padding:4px 8px;margin-top:8px;text-align:center;font-weight:700;letter-spacing:0.5px;">
         ⚡ BẢN {CURRENT_VERSION}
       </div>
     </div>
     """, unsafe_allow_html=True)
 
-    st.markdown('<p style="font-size:9px;letter-spacing:2.5px;color:#c9a96e;text-transform:uppercase;margin-bottom:8px;">KHU VỰC QUÉT</p>', unsafe_allow_html=True)
+    st.markdown('<p style="font-size:9px;letter-spacing:2.5px;color:#E50914;text-transform:uppercase;margin-bottom:8px;">KHU VỰC QUÉT</p>', unsafe_allow_html=True)
     selected_region = st.selectbox(
         "Chọn vùng",
         options=list(VIETNAM_REGIONS.keys()),
@@ -529,7 +437,7 @@ with st.sidebar:
     )
 
     st.divider()
-    st.markdown('<p style="font-size:9px;letter-spacing:2.5px;color:#c9a96e;text-transform:uppercase;margin-bottom:8px;">BỘ LỌC</p>', unsafe_allow_html=True)
+    st.markdown('<p style="font-size:9px;letter-spacing:2.5px;color:#E50914;text-transform:uppercase;margin-bottom:8px;">BỘ LỌC</p>', unsafe_allow_html=True)
 
     filter_stars = st.multiselect(
         "Số sao",
@@ -551,7 +459,7 @@ with st.sidebar:
     )
 
     st.divider()
-    st.markdown('<p style="font-size:9px;letter-spacing:2.5px;color:#c9a96e;text-transform:uppercase;margin-bottom:8px;">TÀI KHOẢN EMAIL</p>', unsafe_allow_html=True)
+    st.markdown('<p style="font-size:9px;letter-spacing:2.5px;color:#E50914;text-transform:uppercase;margin-bottom:8px;">TÀI KHOẢN EMAIL</p>', unsafe_allow_html=True)
     email_ok = bool(EMAIL_CONFIG.get("smtp_password"))
     if email_ok:
         st.markdown(f'<p style="font-size:11px;color:#4a7c59;">● {EMAIL_CONFIG["sender_email"]}</p>', unsafe_allow_html=True)
@@ -611,14 +519,14 @@ tab_today, tab_backlog, tab3, tab_logs = st.tabs([
 # ─────────────────────────────────────────────────────────────
 with tab_today:
     st.markdown(f"""
-    <div style="background: linear-gradient(135deg, #181510 0%, #0d0d0d 100%);
-                border: 1px solid #c9a96e; border-radius: 4px; padding: 24px 28px; margin-bottom: 24px;">
+    <div style="background: linear-gradient(135deg, #121212 0%, #0d0d0d 100%);
+                border: 1px solid #E50914; border-radius: 4px; padding: 24px 28px; margin-bottom: 24px;">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;">
         <div>
-          <div style="font-size:10px;letter-spacing:3px;color:#c9a96e;text-transform:uppercase;font-weight:600;">
+          <div style="font-size:10px;letter-spacing:3px;color:#E50914;text-transform:uppercase;font-weight:600;">
             HỆ THỐNG TỰ ĐỘNG HÓA TOÀN DIỆN
           </div>
-          <div style="font-family:'Cormorant Garamond',serif;font-size:26px;color:#f0ebe3;margin:4px 0 6px;">
+          <div style="font-family:'Montserrat',sans-serif;font-weight:700;font-size:26px;color:#FFFFFF;margin:4px 0 6px;">
             1-Click Master Auto-Pilot
           </div>
           <div style="font-size:12px;color:#999;max-width:650px;line-height:1.6;">
@@ -632,7 +540,7 @@ with tab_today:
           <div style="font-size:11px;color:#666;margin-top:4px;">
             ⏰ Tự động chạy mỗi sáng lúc <b>09:00 AM</b>
           </div>
-          <div style="font-size:10px;color:#c9a96e;margin-top:6px;background:#18140c;border:1px solid #3d311d;border-radius:3px;padding:3px 8px;font-weight:600;display:inline-block;">
+          <div style="font-size:10px;color:#E50914;margin-top:6px;background:#18140c;border:1px solid #33080A;border-radius:3px;padding:3px 8px;font-weight:600;display:inline-block;">
             ⚡ BẢN {CURRENT_VERSION}
           </div>
         </div>
@@ -648,12 +556,12 @@ with tab_today:
 
     with col_cfg1:
         st.markdown(f"""
-        <div style="background:#141414; border:1px solid #262626; border-left:3px solid #c9a96e;
+        <div style="background:#141414; border:1px solid #262626; border-left:3px solid #E50914;
                     padding:12px 16px; border-radius:3px;">
-          <div style="font-size:9px; letter-spacing:2px; color:#c9a96e; text-transform:uppercase;">
+          <div style="font-size:9px; letter-spacing:2px; color:#E50914; text-transform:uppercase;">
             ĐỊA ĐIỂM QUÉT (ĐỒNG BỘ TỪ CỘT TRÁI)
           </div>
-          <div style="font-size:13px; color:#f0ebe3; margin-top:4px; font-weight:500;">
+          <div style="font-size:13px; color:#FFFFFF; margin-top:4px; font-weight:500;">
             📍 {selected_region}
           </div>
           <div style="font-size:11px; color:#888; margin-top:2px;">
@@ -706,11 +614,11 @@ with tab_today:
                 badge_color = "#e63946" if "RẤT GẤP" in item['priority_badge'] or "HOT" in item['priority_badge'] else "#f4a261"
                 table_rows_html.append(f"""
                 <tr style="border-bottom:1px solid #222; transition:background 0.2s;" onmouseover="this.style.background='#1c1c1c'" onmouseout="this.style.background='transparent'">
-                  <td style="padding:10px 12px; font-weight:bold; color:#c9a96e;">#{item['queue_index']}</td>
+                  <td style="padding:10px 12px; font-weight:bold; color:#E50914;">#{item['queue_index']}</td>
                   <td style="padding:10px 12px;"><span style="background:{badge_color}22; color:{badge_color}; border:1px solid {badge_color}55; padding:2px 6px; border-radius:3px; font-size:10px; font-weight:600;">{item['priority_badge']}</span></td>
-                  <td style="padding:10px 12px; font-weight:500; color:#f0ebe3;">{item['hotel_name']}</td>
+                  <td style="padding:10px 12px; font-weight:500; color:#FFFFFF;">{item['hotel_name']}</td>
                   <td style="padding:10px 12px; color:#aaa;">{item['city']}</td>
-                  <td style="padding:10px 12px; color:#ddd;"><span style="color:#c9a96e;">{item['recipient_role']}</span></td>
+                  <td style="padding:10px 12px; color:#ddd;"><span style="color:#E50914;">{item['recipient_role']}</span></td>
                   <td style="padding:10px 12px; font-family:monospace; color:#8ecae6;">{item['recipient_email']}</td>
                   <td style="padding:10px 12px; color:#888; font-size:11px;">{item['reason']}</td>
                 </tr>
@@ -720,7 +628,7 @@ with tab_today:
             <div style="overflow-x:auto; border:1px solid #2d2d2d; border-radius:4px; margin-top:4px;">
               <table style="width:100%; border-collapse:collapse; font-size:12px; text-align:left;">
                 <thead>
-                  <tr style="background:#181818; border-bottom:1px solid #333; color:#c9a96e; text-transform:uppercase; font-size:10px; letter-spacing:1px;">
+                  <tr style="background:#181818; border-bottom:1px solid #333; color:#E50914; text-transform:uppercase; font-size:10px; letter-spacing:1px;">
                     <th style="padding:10px 12px;">#</th>
                     <th style="padding:10px 12px;">Ưu Tiên</th>
                     <th style="padding:10px 12px;">Khách Sạn / Dự Án</th>
@@ -977,14 +885,14 @@ with tab_today:
 # ─────────────────────────────────────────────────────────────
 with tab_backlog:
     st.markdown(f"""
-    <div style="background: linear-gradient(135deg, #181510 0%, #0d0d0d 100%);
-                border: 1px solid #c9a96e; border-radius: 4px; padding: 22px 26px; margin-bottom: 20px;">
+    <div style="background: linear-gradient(135deg, #121212 0%, #0d0d0d 100%);
+                border: 1px solid #E50914; border-radius: 4px; padding: 22px 26px; margin-bottom: 20px;">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;">
         <div>
-          <div style="font-size:10px;letter-spacing:3px;color:#c9a96e;text-transform:uppercase;font-weight:600;">
+          <div style="font-size:10px;letter-spacing:3px;color:#E50914;text-transform:uppercase;font-weight:600;">
             KHO DỮ LIỆU EMAIL SỐNG DỰ BỊ (BACKLOG QUEUE)
           </div>
-          <div style="font-family:'Cormorant Garamond',serif;font-size:26px;color:#f0ebe3;margin:4px 0 6px;">
+          <div style="font-family:'Montserrat',sans-serif;font-weight:700;font-size:26px;color:#FFFFFF;margin:4px 0 6px;">
             Hàng Đợi Email Sống Dự Bị (#21 ➔ Hết Dữ Liệu)
           </div>
           <div style="font-size:12px;color:#999;max-width:750px;line-height:1.6;">
@@ -1242,14 +1150,14 @@ with tab_logs:
     hb = get_heartbeat_status()
 
     st.markdown(f"""
-    <div style="background: linear-gradient(135deg, #181510 0%, #0d0d0d 100%);
-                border: 1px solid #c9a96e; border-radius: 4px; padding: 22px 26px; margin-bottom: 20px;">
+    <div style="background: linear-gradient(135deg, #121212 0%, #0d0d0d 100%);
+                border: 1px solid #E50914; border-radius: 4px; padding: 22px 26px; margin-bottom: 20px;">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;">
         <div>
-          <div style="font-size:10px;letter-spacing:3px;color:#c9a96e;text-transform:uppercase;font-weight:600;">
+          <div style="font-size:10px;letter-spacing:3px;color:#E50914;text-transform:uppercase;font-weight:600;">
             TRUNG TÂM GIÁM SÁT HỆ THỐNG TOÀN DIỆN (SYSTEM UPTIME & 24/7/365 MONITOR)
           </div>
-          <div style="font-family:'Cormorant Garamond',serif;font-size:26px;color:#f0ebe3;margin:4px 0 6px;">
+          <div style="font-family:'Montserrat',sans-serif;font-weight:700;font-size:26px;color:#FFFFFF;margin:4px 0 6px;">
             Giám Sát Hoạt Động & Tiến Trình Tự Động 24/7/365
           </div>
           <div style="font-size:12px;color:#999;max-width:750px;line-height:1.6;">
@@ -1261,7 +1169,7 @@ with tab_logs:
             ● {hb.get('status', '🟢 DAEMON ACTIVE 24/7/365')}
           </div>
           <div style="font-size:11px;color:#888;margin-top:4px;">
-            🕒 Cập nhật: <b style="color:#c9a96e;">{hb.get('last_heartbeat', 'Đang kết nối...')}</b>
+            🕒 Cập nhật: <b style="color:#E50914;">{hb.get('last_heartbeat', 'Đang kết nối...')}</b>
           </div>
         </div>
       </div>
@@ -1328,7 +1236,7 @@ with tab_logs:
             if st.button("🔄 Làm mới trạng thái", key="refresh_monitor_btn", use_container_width=True, help="Cập nhật trạng thái hệ thống ngầm ngay lập tức"):
                 st.rerun()
 
-        st.markdown("<div style='font-size:11px;color:#c9a96e;font-weight:bold;margin:8px 0 4px;'>📜 HOẠT ĐỘNG HỆ THỐNG GẦN ĐÂY (ACTIVITY STREAM):</div>", unsafe_allow_html=True)
+        st.markdown("<div style='font-size:11px;color:#E50914;font-weight:bold;margin:8px 0 4px;'>📜 HOẠT ĐỘNG HỆ THỐNG GẦN ĐÂY (ACTIVITY STREAM):</div>", unsafe_allow_html=True)
         activities = hb.get("recent_activities", [])
         if activities:
             for act in activities[:10]:
@@ -1400,7 +1308,7 @@ with tab_logs:
 # ── Footer ────────────────────────────────────────────────────
 st.markdown("""
 <div style="margin-top:60px;padding:24px 0;border-top:1px solid #1e1e1e;text-align:center;">
-  <div style="font-family:'Cormorant Garamond',serif;font-size:16px;letter-spacing:4px;
+  <div style="font-family:'Montserrat',sans-serif;font-weight:700;font-size:16px;letter-spacing:4px;
               color:#333;text-transform:uppercase;margin-bottom:8px;">
     HÀ PHONG VISUALS
   </div>
@@ -1409,7 +1317,7 @@ st.markdown("""
   </div>
   <div style="font-size:9px;letter-spacing:1px;color:#333;margin-top:6px;">
     <a href="https://haphong.com" target="_blank"
-       style="color:#c9a96e;text-decoration:none;">haphong.com</a>
+       style="color:#E50914;text-decoration:none;">haphong.com</a>
     &nbsp;·&nbsp; +84 383 305 909
     &nbsp;·&nbsp; sales@haphong.com
   </div>
