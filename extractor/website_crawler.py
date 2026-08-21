@@ -84,9 +84,6 @@ def crawl_hotel_website(website_url: str, timeout: int = 5) -> Dict:
                 emails = extract_emails_from_html(resp.text)
                 for e in emails:
                     discovered_emails.add(e)
-                # Nếu đã tìm thấy email thực ở trang chủ/contact, không cần crawl thêm quá nhiều
-                if len(discovered_emails) >= 3:
-                    break
         except Exception:
             continue
 

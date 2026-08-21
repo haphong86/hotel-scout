@@ -120,11 +120,12 @@ def get_prioritized_outreach_queue(limit: int = 20, selected_cities: list = None
             if len(queue) >= limit:
                 break
 
-            contacts = h.contacts or []
+            # CHỈ LẤY CÁC CONTACT ĐÃ ĐƯỢC XÁC THỰC SỐNG 100% (VALID)
+            contacts = [c for c in (h.contacts or []) if c.verify_status == "VALID" and c.is_valid is True]
             if not contacts:
                 continue
 
-            # Áp dụng Waterfall Cadence: GM -> DOSM -> Marketing -> Sales
+            # Áp dụng Waterfall Cadence: GM / CEO -> DOSM / Marcom -> Sales -> Info
             # Tìm danh sách email đã gửi trước đây
             sent_contact_ids = {
                 l.contact_id for l in session.query(EmailLog).filter(EmailLog.hotel_id == h.id).all()
@@ -133,15 +134,13 @@ def get_prioritized_outreach_queue(limit: int = 20, selected_cities: list = None
             def role_rank(c):
                 t = (c.title or "").lower()
                 e = (c.email or "").lower()
-                if "general manager" in t or "gm@" in e or "ceo" in t or "tổng giám đốc" in t:
+                if "tổng giám đốc" in t or "general manager" in t or "ceo" in t or "giamdoc" in e or "gm@" in e:
                     return 1
-                if "director of sales" in t or "dosm" in t or "giám đốc sales" in t:
+                if "marketing" in t or "marcom" in t or "pr" in t or "communications" in t:
                     return 2
-                if "marketing" in t or "marcom" in t or "mkt" in e:
+                if "sales" in t or "dosm" in t or "kinh doanh" in t:
                     return 3
-                if "sales" in t:
-                    return 4
-                return 5
+                return 4
 
             sorted_contacts = sorted(contacts, key=role_rank)
             
