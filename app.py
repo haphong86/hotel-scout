@@ -676,6 +676,30 @@ with tab_auto:
             help="Chạy toàn bộ quy trình: Quét -> Tìm Email -> Verify -> Gửi Chiến Dịch -> Báo Cáo Telegram"
         )
 
+    # ── GIÁM SÁT HOẠT ĐỘNG THỜI GIAN THỰC (REALTIME HEARTBEAT MONITOR) ──
+    from scheduler.heartbeat_tracker import get_heartbeat_status
+    hb = get_heartbeat_status()
+
+    st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+    with st.expander(f"📡 GIÁM SÁT TIẾN TRÌNH THỜI GIAN THỰC — {hb.get('status', '🟢 ACTIVE 24/7')}", expanded=True):
+        hb_c1, hb_c2 = st.columns([3, 1])
+        with hb_c1:
+            st.markdown(f"""
+            **Trạng thái hệ thống ngầm:** `{hb.get('status', '🟢 ĐANG CHẠY 24/7')}`  ·  **Cập nhật lần cuối:** `{hb.get('last_heartbeat', '—')}`  
+            **Nhiệm vụ đang thực hiện:** ⚙️ *{hb.get('current_task', 'Đang giám sát chu kỳ 24/7')}*
+            """)
+        with hb_c2:
+            if st.button("🔄 Làm mới trạng thái", key="refresh_hb_btn", use_container_width=True, help="Kiểm tra hệ thống ngầm đang làm gì ngay lúc này"):
+                st.rerun()
+
+        st.markdown("<div style='font-size:11px;color:#c9a96e;font-weight:bold;margin:6px 0 4px;'>📜 NHẬT KÝ HOẠT ĐỘNG THỜI GIAN THỰC (RECENT ACTIVITY STREAM):</div>", unsafe_allow_html=True)
+        activities = hb.get("recent_activities", [])
+        if activities:
+            for act in activities[:8]:
+                st.caption(f"• `{act}`")
+        else:
+            st.caption("• Hệ thống đang chờ chu kỳ tiếp theo...")
+
     # ── THỰC THI TOÀN BỘ QUY TRÌNH 1-CLICK ────────────────────
     if start_autopilot_btn:
         import time as _t

@@ -1,6 +1,6 @@
 {
-  "version": "v3.1.5",
-  "build_time": "21/08/2026 08:42",
-  "commit": "1a7fd9b",
-  "release_notes": "Total Elimination of React Error #185 (Cleaned DataFrame rendering in HOT LEADS & All Leads)"
+  "version": "v3.2.0",
+  "build_time": "21/08/2026 08:50",
+  "commit": "e8391fa",
+  "release_notes": "Continuous 24/7 Background Scouting Daemon & Realtime Heartbeat Activity Stream"
 }

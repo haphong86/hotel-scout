@@ -310,26 +310,109 @@ def run_daily_autopilot_job():
     print(f"✅ [CRON 09:00 AM] Hoàn tất chu trình! Đã gửi {sent_count} email và bắn báo cáo.")
 
 
+from scheduler.heartbeat_tracker import log_activity
+
+
+def run_continuous_scout_cycle():
+    """Chu kỳ quét liên tục 24/7 mỗi 60 phút: cào KS mới, quét Pre-Opening Radar, verify MX"""
+    target_cities = [
+        "Đà Nẵng", "Hội An", "Quảng Nam", "Huế", "Lăng Cô",
+        "Quy Nhơn", "Tuy Hòa", "Nha Trang", "Cam Ranh",
+        "Phan Thiết", "Đà Lạt", "Phú Quốc"
+    ]
+    log_activity("🔍 BẮT ĐẦU CHU KỲ QUÉT RADAR 24/7", f"Quét tín hiệu dự án tại {len(target_cities)} tỉnh thành...")
+
+    # 1. Quét Radar Pre-Opening
+    try:
+        from radar.pre_opening_radar import run_pre_opening_radar
+        r_res = run_pre_opening_radar(target_cities, notify_telegram=False)
+        log_activity("🔭 Quét Pre-Opening Radar", f"Đang bám sát {r_res['total_radar_projects']} dự án ({r_res['hot_projects_count']} dự án RẤT NÓNG)")
+    except Exception as e:
+        log_activity("⚠️ Pre-Opening Radar", f"Lỗi: {e}")
+
+    # 2. Cào khách sạn mới từ OpenStreetMap & Google Maps & Booking
+    session = get_session()
+    new_saved = 0
+    from scanner.overpass_scanner import scan_city_osm
+    from scanner.google_maps_scraper import search_google_maps
+    from scanner.early_signals import scrape_booking_opening_soon
+
+    for city in target_cities[:4]:  # Quét luân phiên
+        try:
+            osm = scan_city_osm(city, radius_km=15)
+            gmaps = search_google_maps(f"khách sạn mới {city}", city)
+            b_soon = scrape_booking_opening_soon(city)
+
+            all_found = osm + gmaps + b_soon
+            for h in all_found:
+                name = (h.get("name") or "").strip()
+                if not name or len(name) < 3:
+                    continue
+                exists = session.query(Hotel).filter(Hotel.name == name, Hotel.city == city).first()
+                if not exists:
+                    session.add(Hotel(
+                        name=name, city=city, address=h.get("address"),
+                        website=h.get("website") or h.get("source_url"),
+                        phone_main=h.get("phone_main"), rating=h.get("rating"),
+                        review_count=h.get("review_count", 0), source=h.get("source", "scout_daemon"),
+                        status="Mới tìm thấy"
+                    ))
+                    new_saved += 1
+            session.commit()
+        except Exception:
+            continue
+
+    log_activity("🏢 Hoàn tất cào khách sạn", f"Đã lưu thêm +{new_saved} khách sạn mới vào hệ thống")
+
+    # 3. Tự động kiểm tra MX và verify email sống cho các KS mới
+    try:
+        hotels_unverified = session.query(Hotel).filter(~Hotel.contacts.any()).limit(15).all()
+        verified_count = 0
+        for h in hotels_unverified:
+            if h.website:
+                cand = generate_candidates(h)
+                verified = verify_candidates(cand)
+                if verified:
+                    save_verified_contacts(verified, session)
+                    verified_count += len(verified)
+        session.commit()
+        log_activity("🛡️ Kiểm tra & Verify Email", f"Đã xác thực máy chủ MX và lưu {verified_count} email sống")
+    except Exception as e:
+        log_activity("⚠️ Verify Email", f"Lỗi: {e}")
+
+    session.close()
+    log_activity("💤 Chế độ giám sát 24/7", "Đang chờ chu kỳ quét tiếp theo (mỗi 60 phút)...")
+
+
 def _cron_loop():
-    """Vòng lặp canh giờ UTC+7 kiểm tra đúng 09:00 AM"""
+    """Vòng lặp chạy ngầm 24/7 liên tục trên Railway"""
     last_run_date = ""
-    print("⏰ [SCHEDULER] Bộ đếm giờ tự động 09:00 AM (Vietnam Time) đã kích hoạt!")
+    last_scout_time = 0
+    print("⏰ [SCHEDULER] Bộ đếm giờ tự động 24/7 đã kích hoạt!")
+    log_activity("🚀 KHỞI ĐỘNG HỆ THỐNG", "Bộ máy quét ngầm 24/7 & Lịch tự động 09:00 AM đã sẵn sàng")
 
     while _scheduler_running:
         try:
             now = datetime.now()
-            # Giờ hiện tại (local time máy chủ đã đặt UTC+7 hoặc tính theo giờ VN)
+            now_ts = time.time()
             today_str = now.strftime("%Y-%m-%d")
-            
-            # Kiểm tra nếu đúng 09:00 (từ 09:00 đến 09:05) và hôm nay chưa chạy
+
+            # 1. Chạy chu kỳ quét radar & cào dữ liệu liên tục mỗi 60 phút (3600 giây)
+            if now_ts - last_scout_time >= 3600:
+                last_scout_time = now_ts
+                run_continuous_scout_cycle()
+
+            # 2. Kiểm tra nếu đúng 09:00 AM mỗi sáng (Giờ làm việc) -> Gửi chiến dịch Email Bậc Thang
             if now.hour == 9 and now.minute <= 5 and last_run_date != today_str:
                 last_run_date = today_str
+                log_activity("📤 BẮT ĐẦU CHIẾN DỊCH GỬI MAIL 09:00 AM", "Đang phân bổ gửi email bậc thang...")
                 run_daily_autopilot_job()
 
         except Exception as e:
             print(f"⚠️ [SCHEDULER ERROR]: {e}")
+            log_activity("⚠️ Lỗi vòng lặp Scheduler", str(e))
 
-        # Ngủ 30 giây rồi kiểm tra tiếp
+        # Cập nhật nhịp tim mỗi 30 giây
         time.sleep(30)
 
 
@@ -344,5 +427,5 @@ def start_scheduler():
 
 
 if __name__ == "__main__":
-    print("🧪 Testing daily autopilot job manually...")
-    run_daily_autopilot_job()
+    print("🧪 Testing continuous scout cycle manually...")
+    run_continuous_scout_cycle()
