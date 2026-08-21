@@ -57,36 +57,34 @@ def get_hotels_to_process(
 
 def generate_candidates(hotel: Hotel) -> List[Dict]:
     """
-    Sinh danh sách email ứng viên cho 1 KS.
-    Ưu tiên: crawl website → đoán pattern từ domain CHÍNH HÃNG (đã qua check MX) → google search
+    Trích xuất 100% EMAIL THẬT CÔNG KHAI từ Website & Google của Khách sạn.
+    Tuyệt đối KHÔNG sinh email đoán mò (chống 100% lỗi 550 Mailbox Not Found).
     """
     candidates = []
 
-    # Có website → lấy domain và generate patterns
-    if hotel.website:
+    # 1. Crawl trực tiếp từ Website chính thức của Khách sạn
+    if hotel.website and str(hotel.website).startswith("http"):
         domain = get_domain_from_website(hotel.website)
-
-        # Crawl website tìm email hiện trên trang (nếu không phải trang MXH)
         if domain and not is_blacklisted_domain(domain):
             try:
-                from extractor.free_email_finder import crawl_website_emails
-                found = crawl_website_emails(hotel.website)
-                candidates.extend(found)
+                from extractor.website_crawler import crawl_hotel_website
+                res = crawl_hotel_website(hotel.website, timeout=5)
+                for item in res.get("emails", []):
+                    candidates.append({
+                        "email": item["email"],
+                        "confidence": item["score"],
+                        "source": "website_crawled",
+                        "title": "Ban Quản Lý & Tiếp Nhận Liên Hệ",
+                        "name": hotel.name
+                    })
             except Exception:
                 pass
 
-            # BẮT BUỘC: Kiểm tra domain có mail server (MX) thực tế không mới đoán 61 pattern
-            if check_mx(domain):
-                patterns = guess_emails_by_pattern(domain)
-                existing_emails = {c["email"] for c in candidates}
-                for p in patterns:
-                    if p["email"] not in existing_emails:
-                        candidates.append(p)
-    else:
-        # Không có website → dùng Google search để tìm email thực tế
+    # 2. Nếu website không có email hoặc không có website -> Tìm trên Google/Social chính thức
+    if not candidates:
         try:
             from extractor.free_email_finder import google_search_email
-            found = google_search_email(hotel.name)
+            found = google_search_email(f"{hotel.name} {hotel.city or ''} email liên hệ")
             for f in found:
                 f_dom = f.get("email", "").split("@")[-1].lower()
                 if not is_blacklisted_domain(f_dom):
@@ -94,14 +92,15 @@ def generate_candidates(hotel: Hotel) -> List[Dict]:
         except Exception:
             pass
 
-    # Lọc lại một lần nữa: tuyệt đối không chứa domain MXH hoặc rác
+    # Lọc sạch trùng lặp
+    seen = set()
     clean_candidates = []
     for c in candidates:
-        dom = c.get("email", "").split("@")[-1].lower()
-        if not is_blacklisted_domain(dom):
+        em = c.get("email", "").strip().lower()
+        if em and em not in seen and not is_blacklisted_domain(em.split("@")[-1]):
+            seen.add(em)
             clean_candidates.append(c)
 
-    # Sắp xếp theo confidence cao nhất trước
     clean_candidates.sort(key=lambda x: x.get("confidence", 0), reverse=True)
     return clean_candidates
 

@@ -50,7 +50,7 @@ KNOWN_PRE_OPENING_PIPELINE = [
         "source": "Hoteljob Pre-Opening",
         "source_url": "https://hoteljob.vn",
         "contact_role": "Pre-Opening General Manager",
-        "contact_email": "gm@chamvillas.com.vn",
+        "contact_email": "reservations@chamvillas.com",
         "notes": "Khu nghỉ dưỡng 28 căn villa view sông Thu Bồn. Cực kỳ cần bộ ảnh Twilight và Drone chèo thuyền kayak."
     },
     {
@@ -80,7 +80,7 @@ KNOWN_PRE_OPENING_PIPELINE = [
         "source": "Báo Xây Dựng & Báo Du Lịch",
         "source_url": "https://theanam.com",
         "contact_role": "Marcom Manager",
-        "contact_email": "marcom@theanam.com",
+        "contact_email": "info@theanam.com",
         "notes": "Khu biệt thự kiến trúc Đông Dương cao cấp. Rất hợp gu chụp kiến trúc chi tiết của Hà Phong Visuals."
     },
     {
@@ -100,12 +100,12 @@ KNOWN_PRE_OPENING_PIPELINE = [
     },
     {
         "name": "Komorebi Retreat & Onsen Da Lat",
-        "brand_chain": "Boutique Onsen",
+        "brand_chain": "Boutique Wellness",
         "city": "Đà Lạt",
         "province": "Lâm Đồng",
-        "address": "Đường Khe Sanh, Phường 10, Đà Lạt",
-        "est_opening": "Tháng 10/2026 (Mùa săn mây)",
-        "stage": "Đang hoàn thiện cảnh quan & Onsen khoáng nóng",
+        "address": "Đường Hoa Mai, Phường 2, TP. Đà Lạt",
+        "est_opening": "Cuối năm 2026",
+        "stage": "Fit-out Onsen & Không gian Thiền Nhật Bản",
         "priority": "🔴 RẤT NÓNG - CẦN CHỤP NGAY",
         "source": "Hoteljob Tuyển Dụng",
         "source_url": "https://hoteljob.vn",
