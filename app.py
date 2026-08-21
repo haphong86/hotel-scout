@@ -450,13 +450,24 @@ def get_stats() -> dict:
 
 def get_app_version() -> str:
     """Lấy số phiên bản và mã commit mới nhất của hệ thống"""
+    # 1. Đọc từ file version.json
+    try:
+        import json
+        if os.path.exists("version.json"):
+            with open("version.json", "r", encoding="utf-8") as f:
+                vdata = json.load(f)
+                return f"{vdata.get('version', 'v2.6.2')} • #{vdata.get('commit', '9d5992e')} ({vdata.get('build_time', '21/08 07:30')})"
+    except Exception:
+        pass
+
+    # 2. Fallback từ git
     try:
         import subprocess
         git_hash = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], stderr=subprocess.DEVNULL).decode().strip()
         git_date = subprocess.check_output(["git", "log", "-1", "--format=%cd", "--date=format:%d/%m %H:%M"], stderr=subprocess.DEVNULL).decode().strip()
-        return f"v2.6.0 • #{git_hash} ({git_date})"
+        return f"v2.6.2 • #{git_hash} ({git_date})"
     except Exception:
-        return "v2.6.0 (Railway Live)"
+        return "v2.6.2 • 21/08/2026 (Live Production)"
 
 CURRENT_VERSION = get_app_version()
 
@@ -469,7 +480,7 @@ with st.sidebar:
       <div class="brand-name">Hà Phong</div>
       <div style="font-size:10px;letter-spacing:2px;color:#c9a96e;margin-top:2px;">VISUALS</div>
       <div style="font-size:8px;letter-spacing:2px;color:#444;margin-top:8px;text-transform:uppercase;">Hotel Scout System</div>
-      <div style="font-size:10px;color:#c9a96e;background:#18140c;border:1px solid #3d311d;border-radius:4px;padding:4px 8px;margin-top:10px;text-align:center;font-weight:600;letter-spacing:0.5px;">
+      <div style="font-size:10px;color:#c9a96e;background:#18140c;border:1px solid #3d311d;border-radius:4px;padding:5px 8px;margin-top:10px;text-align:center;font-weight:600;letter-spacing:0.5px;">
         ⚡ BẢN {CURRENT_VERSION}
       </div>
     </div>
@@ -574,7 +585,7 @@ tab_auto, tab1, tab2, tab3, tab4, tab_logs = st.tabs([
 # TAB 0: 1-CLICK AUTOPILOT
 # ─────────────────────────────────────────────────────────────
 with tab_auto:
-    st.markdown("""
+    st.markdown(f"""
     <div style="background: linear-gradient(135deg, #181510 0%, #0d0d0d 100%);
                 border: 1px solid #c9a96e; border-radius: 4px; padding: 24px 28px; margin-bottom: 24px;">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;">
@@ -595,6 +606,9 @@ with tab_auto:
           </div>
           <div style="font-size:11px;color:#666;margin-top:4px;">
             ⏰ Tự động chạy mỗi sáng lúc <b>09:00 AM</b>
+          </div>
+          <div style="font-size:10px;color:#c9a96e;margin-top:6px;background:#18140c;border:1px solid #3d311d;border-radius:3px;padding:3px 8px;font-weight:600;display:inline-block;">
+            ⚡ BẢN {CURRENT_VERSION}
           </div>
         </div>
       </div>
