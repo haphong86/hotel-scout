@@ -715,20 +715,42 @@ with tab_auto:
         if not outreach_queue:
             st.info("Hiện tại chưa có email nào trong hàng đợi. Nhấn **START AUTOPILOT** để quét thêm khách sạn mới!")
         else:
-            q_rows = []
+            table_rows_html = []
             for item in outreach_queue:
-                q_rows.append({
-                    "Thứ tự": f"#{item['queue_index']}",
-                    "Cấp độ ưu tiên": f"{item['priority_badge']} · {item['priority_tier'].split(':')[0]}",
-                    "Khách sạn / Dự án": str(item['hotel_name']),
-                    "Thành phố": str(item['city']),
-                    "Người nhận": f"{item['recipient_role']}",
-                    "Địa chỉ Email": str(item['recipient_email']),
-                    "Trạng thái Mail": str(item['email_status']),
-                    "Lý do ưu tiên": str(item['reason']),
-                })
-            df_q = pd.DataFrame(q_rows)
-            st.dataframe(df_q, use_container_width=True, hide_index=True)
+                badge_color = "#e63946" if "RẤT GẤP" in item['priority_badge'] or "HOT" in item['priority_badge'] else "#f4a261"
+                table_rows_html.append(f"""
+                <tr style="border-bottom:1px solid #222; transition:background 0.2s;" onmouseover="this.style.background='#1c1c1c'" onmouseout="this.style.background='transparent'">
+                  <td style="padding:10px 12px; font-weight:bold; color:#c9a96e;">#{item['queue_index']}</td>
+                  <td style="padding:10px 12px;"><span style="background:{badge_color}22; color:{badge_color}; border:1px solid {badge_color}55; padding:2px 6px; border-radius:3px; font-size:10px; font-weight:600;">{item['priority_badge']}</span></td>
+                  <td style="padding:10px 12px; font-weight:500; color:#f0ebe3;">{item['hotel_name']}</td>
+                  <td style="padding:10px 12px; color:#aaa;">{item['city']}</td>
+                  <td style="padding:10px 12px; color:#ddd;"><span style="color:#c9a96e;">{item['recipient_role']}</span></td>
+                  <td style="padding:10px 12px; font-family:monospace; color:#8ecae6;">{item['recipient_email']}</td>
+                  <td style="padding:10px 12px; color:#888; font-size:11px;">{item['reason']}</td>
+                </tr>
+                """)
+
+            html_table = f"""
+            <div style="overflow-x:auto; border:1px solid #2d2d2d; border-radius:4px; margin-top:4px;">
+              <table style="width:100%; border-collapse:collapse; font-size:12px; text-align:left;">
+                <thead>
+                  <tr style="background:#181818; border-bottom:1px solid #333; color:#c9a96e; text-transform:uppercase; font-size:10px; letter-spacing:1px;">
+                    <th style="padding:10px 12px;">#</th>
+                    <th style="padding:10px 12px;">Ưu Tiên</th>
+                    <th style="padding:10px 12px;">Khách Sạn / Dự Án</th>
+                    <th style="padding:10px 12px;">Khu Vực</th>
+                    <th style="padding:10px 12px;">Đầu Mối</th>
+                    <th style="padding:10px 12px;">Email Sạch</th>
+                    <th style="padding:10px 12px;">Lý Do Ưu Tiên</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {''.join(table_rows_html)}
+                </tbody>
+              </table>
+            </div>
+            """
+            st.markdown(html_table, unsafe_allow_html=True)
 
     # ── THỰC THI TOÀN BỘ QUY TRÌNH 1-CLICK ────────────────────
     if start_autopilot_btn:

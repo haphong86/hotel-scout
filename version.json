@@ -1,6 +1,6 @@
 {
-  "version": "v3.3.2",
-  "build_time": "21/08/2026 09:40",
-  "commit": "3c91af2",
-  "release_notes": "Fix Vietnam UTC+7 Working Hours Email Auto-Trigger & Persistent Run State"
+  "version": "v3.3.3",
+  "build_time": "21/08/2026 09:42",
+  "commit": "9b12a84",
+  "release_notes": "Replace Streamlit Glide Data Grid with Fast Native Luxury HTML Table to prevent React 185"
 }
