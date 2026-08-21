@@ -176,32 +176,54 @@ def pattern_score(email: str) -> int:
 def check_smtp_mailbox_exists(email: str, mx_host: str, timeout: float = 6.0) -> Optional[bool]:
     """
     KIỂM TRA TRỰC TIẾP HÒM THƯ CÓ THỰC SỰ TỒN TẠI TRÊN MAIL SERVER KHÔNG:
-    Kết nối SMTP và gửi lệnh RCPT TO: <email> (KHÔNG gửi thư thật)
+    1. Kết nối SMTP và gửi lệnh RCPT TO: <email>
+    2. Bắn thêm một địa chỉ ngẫu nhiên để phát hiện Catch-All (Domain nhận bừa)
     Trả về:
-      True:  Server trả về 250 (Hòm thư tồn tại thật 100% — GỬI AN TOÀN)
-      False: Server trả về 550 / 551 / 553 / User Inactive (Hòm thư KHÔNG TỒN TẠI -> LOẠI BỎ NGAY LẬP TỨC)
-      None:  Server từ chối probe hoặc timeout -> Đánh giá theo nguồn gốc cào web
+      True:  Server trả về 250 (Hòm thư tồn tại thật 100% và không phải catch-all bừa bãi)
+      False: Server trả về 550 / 551 / 553 (Hòm thư KHÔNG TỒN TẠI -> LOẠI BỎ NGAY)
+      None:  Server chặn cổng 25 / không xác minh được -> Cần dựa vào nguồn cào website
     """
     if not email or not mx_host or "@" not in email:
         return None
+    domain = email.split("@")[1].lower()
     try:
         import smtplib
+        import uuid
+        
         server = smtplib.SMTP(timeout=timeout)
         server.connect(mx_host, 25)
         server.ehlo_or_helo_if_needed()
-        server.mail("verify@haphong.com")
-        code, msg = server.rcpt(email)
+        server.mail("probe@haphong.com")
+        code, _ = server.rcpt(email)
+        
+        if code in [550, 551, 552, 553, 554]:
+            try:
+                server.quit()
+            except Exception:
+                pass
+            return False
+            
+        if code == 250:
+            # Kiểm tra xem Server có phải là Catch-All nhận bừa mọi email không
+            fake_probe = f"nonexistent_{uuid.uuid4().hex[:8]}@{domain}"
+            fake_code, _ = server.rcpt(fake_probe)
+            try:
+                server.quit()
+            except Exception:
+                pass
+                
+            if fake_code == 250:
+                # Server là Catch-all (nhận mọi thứ), không thể khẳng định 100% hòm thư đoán tồn tại
+                return None
+            else:
+                # Địa chỉ giả bị 550 từ chối, nhưng địa chỉ email này được 250 OK -> CHẮC CHẮN SỐNG 100%
+                return True
+                
         try:
             server.quit()
         except Exception:
             pass
-
-        if code == 250:
-            return True
-        elif code in [550, 551, 552, 553, 554]:
-            return False
-        else:
-            return None
+        return None
     except Exception:
         return None
 
