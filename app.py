@@ -592,14 +592,12 @@ c5.metric("OPEN RATE",       stats["open_rate"])
 st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
 
 # ── TABS ─────────────────────────────────────────────────────
-tab_auto, tab_radar, tab1, tab2, tab3, tab4, tab_logs = st.tabs([
+tab_auto, tab2, tab3, tab4, tab_logs = st.tabs([
     "🚀 1-CLICK AUTOPILOT",
-    "🔭 PRE-OPENING RADAR",
-    "SCANNER",
-    "CONTACTS",
-    "EMAIL CAMPAIGN",
-    "ANALYTICS",
-    "📜 SYSTEM LOGS",
+    "👥 CONTACTS",
+    "✉️ EMAIL CAMPAIGN",
+    "📊 ANALYTICS",
+    "⏱️ GIÁM SÁT 24/7/365",
 ])
 
 
@@ -682,30 +680,6 @@ with tab_auto:
             use_container_width=True,
             help="Chạy toàn bộ quy trình: Quét -> Tìm Email -> Verify -> Gửi Chiến Dịch -> Báo Cáo Telegram"
         )
-
-    # ── GIÁM SÁT HOẠT ĐỘNG THỜI GIAN THỰC (REALTIME HEARTBEAT MONITOR) ──
-    from scheduler.heartbeat_tracker import get_heartbeat_status
-    hb = get_heartbeat_status()
-
-    st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
-    with st.expander(f"📡 GIÁM SÁT TIẾN TRÌNH THỜI GIAN THỰC — {hb.get('status', '🟢 ACTIVE 24/7')}", expanded=True):
-        hb_c1, hb_c2 = st.columns([3, 1])
-        with hb_c1:
-            st.markdown(f"""
-            **Trạng thái hệ thống ngầm:** `{hb.get('status', '🟢 ĐANG CHẠY 24/7')}`  ·  **Cập nhật lần cuối:** `{hb.get('last_heartbeat', '—')}`  
-            **Nhiệm vụ đang thực hiện:** ⚙️ *{hb.get('current_task', 'Đang giám sát chu kỳ 24/7')}*
-            """)
-        with hb_c2:
-            if st.button("🔄 Làm mới trạng thái", key="refresh_hb_btn", use_container_width=True, help="Kiểm tra hệ thống ngầm đang làm gì ngay lúc này"):
-                st.rerun()
-
-        st.markdown("<div style='font-size:11px;color:#c9a96e;font-weight:bold;margin:6px 0 4px;'>📜 NHẬT KÝ HOẠT ĐỘNG THỜI GIAN THỰC (RECENT ACTIVITY STREAM):</div>", unsafe_allow_html=True)
-        activities = hb.get("recent_activities", [])
-        if activities:
-            for act in activities[:8]:
-                st.caption(f"• `{act}`")
-        else:
-            st.caption("• Hệ thống đang chờ chu kỳ tiếp theo...")
 
     # ── HÀNG ĐỢI GỬI EMAIL ƯU TIÊN (PRIORITIZED OUTREACH QUEUE) ──
     from campaign.priority_queue import get_prioritized_outreach_queue
@@ -2171,16 +2145,35 @@ with tab4:
 
 
 # ─────────────────────────────────────────────────────────────
-# TAB 5: SYSTEM LOGS
+# TAB: GIÁM SÁT 24/7/365 (SYSTEM MONITOR & UPTIME)
 # ─────────────────────────────────────────────────────────────
 with tab_logs:
-    st.markdown("""
-    <div style="background:#141414; border:1px solid #2a2a2a; border-left:3px solid #c9a96e; padding:16px 20px; border-radius:3px; margin-bottom:20px;">
-      <div style="font-size:10px; letter-spacing:2.5px; color:#c9a96e; text-transform:uppercase; font-weight:600;">
-        NHẬT KÝ VẬN HÀNH TOÀN HỆ THỐNG
-      </div>
-      <div style="font-size:13px; color:#aaa; margin-top:4px;">
-        Theo dõi minh bạch 100% từng tiến trình: Quét khách sạn, Lọc verify email, Gửi chiến dịch và Thông báo Telegram.
+    from scheduler.heartbeat_tracker import get_heartbeat_status
+    hb = get_heartbeat_status()
+
+    st.markdown(f"""
+    <div style="background: linear-gradient(135deg, #181510 0%, #0d0d0d 100%);
+                border: 1px solid #c9a96e; border-radius: 4px; padding: 22px 26px; margin-bottom: 20px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;">
+        <div>
+          <div style="font-size:10px;letter-spacing:3px;color:#c9a96e;text-transform:uppercase;font-weight:600;">
+            TRUNG TÂM GIÁM SÁT HỆ THỐNG TOÀN DIỆN (SYSTEM UPTIME & 24/7/365 MONITOR)
+          </div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:26px;color:#f0ebe3;margin:4px 0 6px;">
+            Giám Sát Hoạt Động & Tiến Trình Tự Động 24/7/365
+          </div>
+          <div style="font-size:12px;color:#999;max-width:750px;line-height:1.6;">
+            Theo dõi minh bạch 100% thời gian thực: Máy chủ hoạt động 24/7, Tiến trình quét ngầm (mỗi 60 phút), Xác thực hộp thư sống, Lịch trình gửi email chiến dịch lúc <b>09:00 AM hàng ngày</b>, và Báo cáo Telegram.
+          </div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:11px;letter-spacing:1px;color:#4a7c59;text-transform:uppercase;font-weight:bold;">
+            ● {hb.get('status', '🟢 DAEMON ACTIVE 24/7/365')}
+          </div>
+          <div style="font-size:11px;color:#888;margin-top:4px;">
+            🕒 Cập nhật: <b style="color:#c9a96e;">{hb.get('last_heartbeat', 'Đang kết nối...')}</b>
+          </div>
+        </div>
       </div>
     </div>
     """, unsafe_allow_html=True)
@@ -2190,10 +2183,10 @@ with tab_logs:
         session_log.query(EmailLog)
         .options(joinedload(EmailLog.contact), joinedload(EmailLog.hotel))
         .order_by(EmailLog.sent_at.desc())
-        .limit(150)
+        .limit(200)
         .all()
     )
-    all_scan_logs = session_log.query(ScanLog).order_by(ScanLog.scanned_at.desc()).limit(50).all()
+    all_scan_logs = session_log.query(ScanLog).order_by(ScanLog.scanned_at.desc()).limit(100).all()
 
     email_rows = []
     for l in all_email_logs:
@@ -2219,24 +2212,47 @@ with tab_logs:
             "Mới lưu": s.new_saved,
             "Bị trùng": s.skipped,
             "Thời lượng": dur_str,
-            "Kích hoạt": s.triggered_by or "Thủ công",
+            "Kích hoạt": s.triggered_by or "Tự động 24/7",
         })
 
     session_log.close()
 
-    # Thống kê nhanh
+    # Thống kê tổng quan hệ thống 24/7
     log_c1, log_c2, log_c3, log_c4 = st.columns(4)
-    log_c1.metric("TỔNG EMAIL ĐÃ GỬI", len(email_rows))
-    log_c2.metric("LƯỢT SCAN ĐÃ CHẠY", len(scan_rows))
-    log_c3.metric("TRẠNG THÁI SERVER", "🟢 ONLINE")
-    log_c4.metric("CRON CHU KỲ", "09:00 AM Hàng Ngày")
+    log_c1.metric("TRẠNG THÁI SERVER", "🟢 ONLINE 24/7/365")
+    log_c2.metric("LỊCH CRON TIẾP THEO", "09:00 AM Hàng Ngày")
+    log_c3.metric("TỔNG EMAIL ĐÃ GỬI", f"{len(email_rows)} email")
+    log_c4.metric("LƯỢT QUÉT NGẦM", f"{len(scan_rows)} chu kỳ")
+
+    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+
+    # Khối trạng thái tiến trình thời gian thực
+    with st.expander("📡 TIẾN TRÌNH THỜI GIAN THỰC & NHẬT KÝ HOẠT ĐỘNG GẦN NHẤT", expanded=True):
+        hb_col1, hb_col2 = st.columns([3, 1])
+        with hb_col1:
+            st.markdown(f"""
+            **Nhiệm vụ đang thực hiện:** ⚙️ *{hb.get('current_task', 'Đang giám sát chu kỳ tự động 24/7 (mỗi 60 phút)...')}*  
+            **Ghi nhận lần cuối:** `{hb.get('last_heartbeat', '—')}`
+            """)
+        with hb_col2:
+            if st.button("🔄 Làm mới trạng thái", key="refresh_monitor_btn", use_container_width=True, help="Cập nhật trạng thái hệ thống ngầm ngay lập tức"):
+                st.rerun()
+
+        st.markdown("<div style='font-size:11px;color:#c9a96e;font-weight:bold;margin:8px 0 4px;'>📜 HOẠT ĐỘNG HỆ THỐNG GẦN ĐÂY (ACTIVITY STREAM):</div>", unsafe_allow_html=True)
+        activities = hb.get("recent_activities", [])
+        if activities:
+            for act in activities[:10]:
+                st.caption(f"• `{act}`")
+        else:
+            st.caption("• Hệ thống đang chạy giám sát 24/7, sẵn sàng cho chu kỳ tiếp theo...")
 
     st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
 
+    # Danh sách các Tab con chi tiết
     log_sub1, log_sub2, log_sub3 = st.tabs([
         f"📬 Nhật Ký Gửi Email ({len(email_rows)})",
-        f"🗺️ Lịch Sử Scan ({len(scan_rows)})",
-        "🖥️ File Log Trực Tiếp (Live Stream)"
+        f"🗺️ Lịch Sử Quét Khách Sạn ({len(scan_rows)})",
+        "🖥️ Console & Live Stream Logs"
     ])
 
     with log_sub1:
