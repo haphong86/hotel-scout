@@ -24,9 +24,9 @@ def is_strictly_valid_email(email: str) -> bool:
     return True
 
 
-def get_prioritized_outreach_queue(limit: int = 20, selected_cities: list = None) -> List[Dict]:
+def get_prioritized_outreach_queue(limit: int = 20, offset: int = 0, selected_cities: list = None) -> List[Dict]:
     """
-    Xây dựng danh sách hàng đợi gửi thư từ #1 đến #limit.
+    Xây dựng danh sách hàng đợi gửi thư từ #1 đến #limit (hoặc từ offset đến offset + limit).
     Tự động LOẠI BỎ 100% các khách sạn & email đã gửi, luôn đẩy các email CHƯA GỬI lên đầu.
     """
     session = get_session()
@@ -183,11 +183,37 @@ def get_prioritized_outreach_queue(limit: int = 20, selected_cities: list = None
             seen_emails.add(chosen_c.email.lower())
 
     session.close()
-    return queue
+    
+    # Áp dụng offset và limit
+    if offset > 0:
+        sliced_queue = queue[offset:offset + limit]
+    else:
+        sliced_queue = queue[:limit]
+        
+    # Đánh lại số thứ tự index
+    for idx, item in enumerate(sliced_queue):
+        item["queue_index"] = offset + idx + 1
+        
+    return sliced_queue
+
+
+def get_daily_queue_20(selected_cities: list = None) -> List[Dict]:
+    """Lấy danh sách chính xác 20 email hàng đầu sẽ gửi trong ngày hôm nay (#1 đến #20)"""
+    return get_prioritized_outreach_queue(limit=20, offset=0, selected_cities=selected_cities)
+
+
+def get_backlog_queue_21_plus(selected_cities: list = None, limit: int = 300) -> List[Dict]:
+    """Lấy danh sách email dự bị từ vị trí #21 trở đi cho các ngày tiếp theo"""
+    return get_prioritized_outreach_queue(limit=limit, offset=20, selected_cities=selected_cities)
 
 
 if __name__ == "__main__":
-    q = get_prioritized_outreach_queue(limit=10)
-    print(f"📋 HÀNG ĐỢI GỬI EMAIL ƯU TIÊN ({len(q)} email):")
-    for item in q:
-        print(f" #{item['queue_index']} [{item['priority_badge']}] {item['hotel_name']} ({item['city']}) ➔ {item['recipient_email']} ({item['recipient_role']}) - Score: {item['lead_score']}")
+    q20 = get_daily_queue_20()
+    print(f"📋 HÀNG ĐỢI HÔM NAY - TOP 20 ({len(q20)} email):")
+    for item in q20[:5]:
+        print(f" #{item['queue_index']} [{item['priority_badge']}] {item['hotel_name']} ({item['city']}) ➔ {item['recipient_email']}")
+
+    q21 = get_backlog_queue_21_plus(limit=5)
+    print(f"\n📋 HÀNG ĐỢI DỰ BỊ - TỪ #21 ({len(q21)} email):")
+    for item in q21:
+        print(f" #{item['queue_index']} [{item['priority_badge']}] {item['hotel_name']} ({item['city']}) ➔ {item['recipient_email']}")

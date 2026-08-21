@@ -598,19 +598,19 @@ c5.metric("OPEN RATE",       stats["open_rate"])
 st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
 
 # ── TABS ─────────────────────────────────────────────────────
-tab_auto, tab2, tab3, tab4, tab_logs = st.tabs([
-    "🚀 1-CLICK AUTOPILOT",
-    "👥 CONTACTS",
-    "✉️ EMAIL CAMPAIGN",
-    "📊 ANALYTICS",
+tab_today, tab_backlog, tab2, tab3, tab_logs = st.tabs([
+    "🚀 HÀNG ĐỢI HÔM NAY (TOP 20)",
+    "📋 HÀNG ĐỢI DỰ BỊ (#21 ➔ HẾT)",
+    "👥 CONTACTS & KHÁCH SẠN",
+    "✉️ CHIẾN DỊCH & TEMPLATES",
     "⏱️ GIÁM SÁT 24/7/365",
 ])
 
 
 # ─────────────────────────────────────────────────────────────
-# TAB 0: 1-CLICK AUTOPILOT
+# TAB 1: HÀNG ĐỢI HÔM NAY (TOP 20 EMAIL)
 # ─────────────────────────────────────────────────────────────
-with tab_auto:
+with tab_today:
     st.markdown(f"""
     <div style="background: linear-gradient(135deg, #181510 0%, #0d0d0d 100%);
                 border: 1px solid #c9a96e; border-radius: 4px; padding: 24px 28px; margin-bottom: 24px;">
@@ -974,7 +974,59 @@ with tab_auto:
 
 
 # ─────────────────────────────────────────────────────────────
-# TAB: CONTACTS
+# TAB 2: HÀNG ĐỢI DỰ BỊ (#21 ➔ HẾT DỮ LIỆU)
+# ─────────────────────────────────────────────────────────────
+with tab_backlog:
+    st.markdown(f"""
+    <div style="background: linear-gradient(135deg, #181510 0%, #0d0d0d 100%);
+                border: 1px solid #c9a96e; border-radius: 4px; padding: 22px 26px; margin-bottom: 20px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;">
+        <div>
+          <div style="font-size:10px;letter-spacing:3px;color:#c9a96e;text-transform:uppercase;font-weight:600;">
+            KHO DỮ LIỆU EMAIL SỐNG DỰ BỊ (BACKLOG QUEUE)
+          </div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:26px;color:#f0ebe3;margin:4px 0 6px;">
+            Hàng Đợi Email Sống Dự Bị (#21 ➔ Hết Dữ Liệu)
+          </div>
+          <div style="font-size:12px;color:#999;max-width:750px;line-height:1.6;">
+            Toàn bộ danh sách này là các email <b>ĐÃ ĐƯỢC XÁC THỰC SỐNG 100%</b> sẵn sàng gửi. Khi bất kỳ email nào trong Top 20 ở Trang Chủ được gửi đi (09:00 - 17:00), email đầu tiên tại đây (#21) sẽ <b>tự động được đôn lên thay thế vào Top 20</b>!
+          </div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:11px;letter-spacing:1px;color:#4a7c59;text-transform:uppercase;font-weight:bold;">
+            ● Trạng thái: TỰ ĐỘNG ĐÔN HÀNG ĐỢI
+          </div>
+        </div>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    from campaign.priority_queue import get_backlog_queue_21_plus
+    backlog_items = get_backlog_queue_21_plus(selected_cities=target_cities, limit=300)
+
+    st.markdown(f"#### 📋 Danh sách {len(backlog_items)} Email Dự Bị Đang Xếp Hàng")
+
+    if not backlog_items:
+        st.info("Hệ thống đang chạy ngầm quét & xác thực email sống cho các khách sạn còn lại. Các email mới sẽ tự động hiển thị tại đây!")
+    else:
+        b_rows = []
+        for item in backlog_items:
+            b_rows.append({
+                "Thứ Tự": f"#{item['queue_index']}",
+                "Ưu Tiên": item['priority_badge'],
+                "Khách Sạn / Dự Án": item['hotel_name'],
+                "Khu Vực": item['city'],
+                "Người Nhận": f"{item['recipient_role']} ({item['recipient_name']})",
+                "Email Sống": item['recipient_email'],
+                "Điểm Lead": f"{item.get('lead_score', 50)}/100",
+                "Lý Do": item.get('reason', 'Tiềm năng'),
+            })
+        df_backlog = pd.DataFrame(b_rows)
+        st.dataframe(df_backlog, use_container_width=True, height=500)
+
+
+# ─────────────────────────────────────────────────────────────
+# TAB: CONTACTS & KHÁCH SẠN
 # ─────────────────────────────────────────────────────────────
 with tab2:
     st.markdown("## 📧 Contacts — Email & Phone")

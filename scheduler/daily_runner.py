@@ -366,24 +366,47 @@ def run_continuous_scout_cycle():
 
     log_activity("🏢 Hoàn tất cào khách sạn", f"Đã lưu thêm +{new_saved} khách sạn mới vào hệ thống")
 
-    # 3. Tự động kiểm tra MX và verify email sống cho các KS mới
-    try:
-        hotels_unverified = session.query(Hotel).filter(~Hotel.contacts.any()).limit(15).all()
-        verified_count = 0
-        for h in hotels_unverified:
-            if h.website:
-                cand = generate_candidates(h)
-                verified = verify_candidates(cand)
+def run_continuous_scout_cycle():
+    """Chu kỳ quét và verify email LIÊN TỤC qua toàn bộ cơ sở dữ liệu (Không để máy nghỉ)"""
+    log_activity("🔄 QUÉT & VERIFY EMAIL LIÊN TỤC", "Đang rà soát các khách sạn chưa có liên hệ trong Database...")
+    session = get_session()
+    
+    # 1. Lấy danh sách khách sạn chưa có email liên hệ hoặc chưa verify
+    unverified_hotels = (
+        session.query(Hotel)
+        .filter(~Hotel.contacts.any())
+        .order_by(Hotel.website.desc(), Hotel.stars.desc(), Hotel.created_at.desc())
+        .limit(20)
+        .all()
+    )
+    
+    if not unverified_hotels:
+        log_activity("✅ ĐÃ QUÉT HẾT DỮ LIỆU", "Tất cả khách sạn trong hệ thống đã được tìm kiếm & verify email!")
+        session.close()
+        return
+
+    verified_total = 0
+    processed_count = 0
+
+    for h in unverified_hotels:
+        try:
+            processed_count += 1
+            log_activity("🔍 Đang tìm & verify email", f"[{processed_count}/{len(unverified_hotels)}] {h.name} ({h.city or 'VN'})...")
+            
+            # Sinh ứng viên: Cào web + Mẫu chức danh cấp cao (GM, DOSM, Marcom, v.v.)
+            candidates = generate_candidates(h)
+            if candidates:
+                verified = verify_candidates(candidates, max_verify=6)
                 if verified:
-                    save_verified_contacts(h.id, verified)
-                    verified_count += len(verified)
-        session.commit()
-        log_activity("🛡️ Kiểm tra & Verify Email", f"Đã xác thực máy chủ MX và lưu {verified_count} email sống")
-    except Exception as e:
-        log_activity("⚠️ Verify Email", f"Lỗi: {e}")
+                    saved = save_verified_contacts(h.id, verified)
+                    verified_total += saved
+                    if saved > 0:
+                        log_activity("✅ ĐÃ XÁC THỰC EMAIL SỐNG", f"Lưu +{saved} email cho {h.name}")
+        except Exception as e:
+            continue
 
     session.close()
-    log_activity("💤 Chế độ giám sát 24/7", "Đang chờ chu kỳ quét tiếp theo (mỗi 60 phút)...")
+    log_activity("🎉 HOÀN TẤT CHU KỲ VERIFY", f"Đã rà soát {processed_count} khách sạn ➔ Bổ sung +{verified_total} email sống vào hàng đợi")
 
 
 from datetime import datetime, timezone, timedelta
@@ -425,12 +448,12 @@ def _cron_loop():
             today_str = now_vn.strftime("%Y-%m-%d")
             last_run_date = _get_last_run_date()
 
-            # 1. Chạy chu kỳ quét radar & cào dữ liệu liên tục mỗi 60 phút (3600 giây)
-            if now_ts - last_scout_time >= 3600:
+            # 1. Chạy tiến trình cào & verify email LIÊN TỤC mỗi 3–5 phút (cho đến khi hết 100% list data)
+            if now_ts - last_scout_time >= 180:  # Chạy mỗi 3 phút 1 batch 20 KS liên tục
                 last_scout_time = now_ts
                 run_continuous_scout_cycle()
 
-            # 2. Tự động gửi email trong khung giờ làm việc (09:00 - 17:00 Giờ VN) nếu hôm nay chưa gửi
+            # 2. Tự động gửi email trong khung giờ làm việc (09:00 - 17:00 Giờ VN)
             if 9 <= now_vn.hour <= 17 and last_run_date != today_str:
                 _set_last_run_date(today_str)
                 log_activity("📤 BẮT ĐẦU CHIẾN DỊCH GỬI MAIL TỰ ĐỘNG", f"Đang gửi 20 email bậc thang (Giờ VN: {now_vn.strftime('%H:%M')})...")
@@ -440,8 +463,8 @@ def _cron_loop():
             print(f"⚠️ [SCHEDULER ERROR]: {e}")
             log_activity("⚠️ Lỗi vòng lặp Scheduler", str(e))
 
-        # Cập nhật nhịp tim mỗi 30 giây
-        time.sleep(30)
+        # Nghỉ 15 giây giữa các nhịp kiểm tra
+        time.sleep(15)
 
 
 def start_scheduler():
