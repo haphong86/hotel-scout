@@ -371,11 +371,11 @@ def run_continuous_scout_cycle():
     log_activity("🔄 QUÉT & VERIFY EMAIL LIÊN TỤC", "Đang rà soát các khách sạn chưa có liên hệ trong Database...")
     session = get_session()
     
-    # 1. Lấy danh sách khách sạn chưa có email liên hệ hoặc chưa verify
+    # 1. Lấy danh sách khách sạn CÓ WEBSITE/DOMAIN nhưng chưa có liên hệ hoặc chưa verify
     unverified_hotels = (
         session.query(Hotel)
-        .filter(~Hotel.contacts.any())
-        .order_by(Hotel.website.desc(), Hotel.stars.desc(), Hotel.created_at.desc())
+        .filter(Hotel.website.like("http%"), ~Hotel.contacts.any())
+        .order_by(Hotel.stars.desc(), Hotel.created_at.desc())
         .limit(20)
         .all()
     )
