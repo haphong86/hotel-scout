@@ -762,8 +762,10 @@ with tab_auto:
         p_bar = st.progress(0.0)
         logs = []
 
+        from database.models import get_now_vn
+
         def add_log(msg):
-            logs.append(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}")
+            logs.append(f"[{get_now_vn().strftime('%H:%M:%S')}] {msg}")
             log_box.code("\n".join(logs[-16:]))
 
         # ── GIAI ĐOẠN 1: QUÉT KHÁCH SẠN ──────────────────────
@@ -894,12 +896,10 @@ with tab_auto:
                     res = send_email(to_mail, rec_name or "", subj, body)
                     if res.get("success"):
                         sent_count += 1
-                        session_p = get_session()
-                        db_proj = session_p.query(PreOpeningProject).get(item.get("project_id"))
+                        db_proj = session.query(PreOpeningProject).get(item.get("project_id"))
                         if db_proj:
                             db_proj.status = "Đã gửi Email Launching"
-                            session_p.commit()
-                        session_p.close()
+                            session.commit()
                     _t.sleep(1.5)
                 else:
                     c_dom = to_mail.split("@")[-1].lower().strip()
@@ -920,13 +920,12 @@ with tab_auto:
                         )
                         lang_tag = "🇻🇳 VI"
 
-                    session_l = get_session()
                     elog = EmailLog(
                         hotel_id=item.get("hotel_id"), contact_id=item.get("contact_id"), sequence_num=1,
-                        subject=subj, status="Đang gửi", sent_at=datetime.now()
+                        subject=subj, status="Đang gửi", sent_at=get_now_vn()
                     )
-                    session_l.add(elog)
-                    session_l.flush()
+                    session.add(elog)
+                    session.commit()
 
                     click_tracked_url = f"{tracking_base}/?track=click&id={elog.id}&dest=https://haphong.com"
                     body_with_links = body_raw.replace('href="https://haphong.com"', f'href="{click_tracked_url}"')
@@ -938,15 +937,14 @@ with tab_auto:
                     if res.get("success"):
                         sent_count += 1
                         elog.status = "Đã gửi"
-                        db_h = session_l.query(Hotel).get(item.get("hotel_id"))
+                        db_h = session.query(Hotel).get(item.get("hotel_id"))
                         if db_h:
                             db_h.status = "Đã liên hệ"
-                        session_l.commit()
+                        session.commit()
                     else:
                         elog.status = "Thất bại"
                         elog.error_msg = res.get("message", "")
-                        session_l.commit()
-                    session_l.close()
+                        session.commit()
                     _t.sleep(1.5)
 
         session.close()

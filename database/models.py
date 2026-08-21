@@ -6,7 +6,7 @@ from sqlalchemy import (
     DateTime, Text, Boolean, ForeignKey, Enum
 )
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import enum
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
@@ -174,22 +174,53 @@ class PreOpeningProject(Base):
         return f"<PreOpeningProject {self.name} ({self.city}) - {self.est_opening}>"
 
 
+from sqlalchemy import event
+
+_engine = None
+_SessionFactory = None
+
+VN_TZ = timezone(timedelta(hours=7))
+
+
+def get_now_vn() -> datetime:
+    """Lấy thời gian chuẩn Việt Nam UTC+7"""
+    return datetime.now(VN_TZ)
+
+
 def init_db():
-    """Khởi tạo database và tạo các bảng"""
-    os.makedirs("database", exist_ok=True)
-    engine = create_engine(DATABASE_URL, echo=False)
-    Base.metadata.create_all(engine)
-    return engine
+    """Khởi tạo database và tạo các bảng với chế độ WAL + Timeout chống lock 100%"""
+    global _engine, _SessionFactory
+    if _engine is None:
+        os.makedirs(os.path.dirname(DATABASE_URL.replace("sqlite:///", "")) or "database", exist_ok=True)
+        _engine = create_engine(
+            DATABASE_URL,
+            connect_args={"timeout": 60, "check_same_thread": False},
+            echo=False
+        )
+
+        @event.listens_for(_engine, "connect")
+        def set_sqlite_pragma(dbapi_connection, connection_record):
+            cursor = dbapi_connection.cursor()
+            cursor.execute("PRAGMA journal_mode=WAL")
+            cursor.execute("PRAGMA synchronous=NORMAL")
+            cursor.execute("PRAGMA busy_timeout=60000")
+            cursor.close()
+
+        Base.metadata.create_all(_engine)
+        _SessionFactory = sessionmaker(bind=_engine)
+
+    return _engine
 
 
 def get_session():
-    """Trả về session kết nối database"""
-    engine = init_db()
-    Session = sessionmaker(bind=engine)
-    return Session()
+    """Trả về session kết nối database từ pool an toàn"""
+    global _SessionFactory
+    if _SessionFactory is None:
+        init_db()
+    return _SessionFactory()
 
 
 if __name__ == "__main__":
-    print("🗄️ Khởi tạo database...")
+    print("🗄️ Khởi tạo database với chế độ WAL...")
     init_db()
-    print("✅ Database đã được tạo tại database/hotel_scout.db")
+    print("✅ Database đã được tạo tại database/hotel_scout.db (WAL Mode: ACTIVE)")
