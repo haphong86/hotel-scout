@@ -54,6 +54,19 @@ def html_to_plain(html: str) -> str:
     return soup.get_text(separator="\n", strip=True)
 
 
+import socket
+
+def resolve_smtp_ipv4(host: str) -> str:
+    """Ép buộc phân giải IP IPv4 để tránh lỗi Network is unreachable (IPv6) trên Railway/Docker"""
+    try:
+        ais = socket.getaddrinfo(host, 587, socket.AF_INET, socket.SOCK_STREAM)
+        if ais:
+            return ais[0][4][0]
+    except Exception:
+        pass
+    return host
+
+
 def send_email(
     to_email: str,
     to_name: str,
@@ -61,16 +74,18 @@ def send_email(
     html_body: str,
 ) -> Dict:
     """
-    Gửi 1 email qua Gmail SMTP.
+    Gửi 1 email qua Gmail SMTP (IPv4 forced).
     Trả về: {"success": True/False, "error": "..."}
     """
     try:
         msg = build_email(to_email, to_name, subject, html_body)
+        smtp_target = resolve_smtp_ipv4(EMAIL_CONFIG["smtp_server"])
 
         context = ssl.create_default_context(cafile=certifi.where())
-        with smtplib.SMTP(EMAIL_CONFIG["smtp_server"], EMAIL_CONFIG["smtp_port"]) as server:
-            server.ehlo()
+        with smtplib.SMTP(smtp_target, EMAIL_CONFIG["smtp_port"], timeout=25) as server:
+            server.ehlo("haphong.com")
             server.starttls(context=context)
+            server.ehlo("haphong.com")
             server.login(EMAIL_CONFIG["smtp_user"], EMAIL_CONFIG["smtp_password"])
             server.sendmail(
                 EMAIL_CONFIG["sender_email"],
@@ -116,10 +131,12 @@ def send_with_delay(
 def test_smtp_connection() -> Dict:
     """Test kết nối SMTP, trả về kết quả"""
     try:
+        smtp_target = resolve_smtp_ipv4(EMAIL_CONFIG["smtp_server"])
         context = ssl.create_default_context(cafile=certifi.where())
-        with smtplib.SMTP(EMAIL_CONFIG["smtp_server"], EMAIL_CONFIG["smtp_port"]) as server:
-            server.ehlo()
+        with smtplib.SMTP(smtp_target, EMAIL_CONFIG["smtp_port"], timeout=20) as server:
+            server.ehlo("haphong.com")
             server.starttls(context=context)
+            server.ehlo("haphong.com")
             server.login(EMAIL_CONFIG["smtp_user"], EMAIL_CONFIG["smtp_password"])
         return {"success": True, "message": "✅ Kết nối SMTP thành công!"}
     except smtplib.SMTPAuthenticationError:

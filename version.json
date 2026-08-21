@@ -1,6 +1,6 @@
 {
-  "version": "v3.1.0",
-  "build_time": "21/08/2026 08:20",
-  "commit": "e81d719",
-  "release_notes": "Full LinkedIn Outreach Connector & Multi-Channel Lead Dispatcher (Email + LinkedIn 1-Click)"
+  "version": "v3.1.1",
+  "build_time": "21/08/2026 08:26",
+  "commit": "fa4b890",
+  "release_notes": "Fixed [Errno 101] Network unreachable via IPv4 SMTP forced resolution & Cleaned UI"
 }
