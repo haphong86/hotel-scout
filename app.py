@@ -597,13 +597,13 @@ c5.metric("OPEN RATE",       stats["open_rate"])
 
 st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
 
-# ── TABS ─────────────────────────────────────────────────────
+# ── TABS (GỌN GÀNG, KHÔNG BỊ TRÀN MÀN HÌNH) ───────────────────
 tab_today, tab_backlog, tab2, tab3, tab_logs = st.tabs([
-    "🚀 HÀNG ĐỢI HÔM NAY (TOP 20)",
-    "📋 HÀNG ĐỢI DỰ BỊ (#21 ➔ HẾT)",
-    "👥 CONTACTS & KHÁCH SẠN",
-    "✉️ CHIẾN DỊCH & TEMPLATES",
-    "⏱️ GIÁM SÁT 24/7/365",
+    "🚀 TOP 20 HÔM NAY",
+    "📋 DỰ BỊ (#21+)",
+    "👥 CONTACTS",
+    "✉️ CHIẾN DỊCH",
+    "⏱️ GIÁM SÁT 24/7",
 ])
 
 
@@ -1566,71 +1566,7 @@ with tab3:
 
 
 # ─────────────────────────────────────────────────────────────
-# TAB 4: ANALYTICS
-# ─────────────────────────────────────────────────────────────
-with tab4:
-    st.markdown("## 📊 Analytics")
-    import plotly.express as px
-    import plotly.graph_objects as go
-
-    session_a = get_session()
-
-    # Phân bố theo thành phố
-    hotels_by_city = {}
-    for h in session_a.query(Hotel).all():
-        hotels_by_city[h.city or "Unknown"] = hotels_by_city.get(h.city or "Unknown", 0) + 1
-
-    # Phân bố theo trạng thái
-    hotels_by_status = {}
-    for h in session_a.query(Hotel).all():
-        hotels_by_status[h.status or "Unknown"] = hotels_by_status.get(h.status or "Unknown", 0) + 1
-
-    # Email logs timeline
-    email_logs = session_a.query(EmailLog).filter(EmailLog.sent_at.isnot(None)).all()
-    session_a.close()
-
-    if not hotels_by_city:
-        st.info("Chưa có dữ liệu. Hãy quét KS trước!")
-    else:
-        an1, an2 = st.columns(2)
-
-        with an1:
-            fig1 = px.bar(
-                x=list(hotels_by_city.keys()),
-                y=list(hotels_by_city.values()),
-                title="KS theo thành phố",
-                color=list(hotels_by_city.values()),
-                color_continuous_scale="Oranges",
-            )
-            fig1.update_layout(showlegend=False, xaxis_title="", yaxis_title="Số KS")
-            st.plotly_chart(fig1, use_container_width=True)
-
-        with an2:
-            fig2 = px.pie(
-                names=list(hotels_by_status.keys()),
-                values=list(hotels_by_status.values()),
-                title="Trạng thái KS",
-                color_discrete_sequence=px.colors.sequential.Oranges_r,
-            )
-            st.plotly_chart(fig2, use_container_width=True)
-
-    if email_logs:
-        df_logs = pd.DataFrame([{
-            "Ngày": log.sent_at.date(),
-            "Trạng thái": log.status,
-        } for log in email_logs])
-
-        daily = df_logs.groupby("Ngày").size().reset_index(name="Số email")
-        fig3 = px.line(daily, x="Ngày", y="Số email", title="Email gửi theo ngày",
-                       markers=True, line_shape="spline")
-        fig3.update_traces(line_color="#c9a96e")
-        st.plotly_chart(fig3, use_container_width=True)
-    else:
-        st.info("Chưa có lịch sử gửi email.")
-
-
-# ─────────────────────────────────────────────────────────────
-# TAB: GIÁM SÁT 24/7/365 (SYSTEM MONITOR & UPTIME)
+# TAB: GIÁM SÁT 24/7 (SYSTEM MONITOR & UPTIME)
 # ─────────────────────────────────────────────────────────────
 with tab_logs:
     from scheduler.heartbeat_tracker import get_heartbeat_status
