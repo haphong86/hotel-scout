@@ -639,7 +639,18 @@ with tab_auto:
 
     with col_cfg2:
         auto_email_limit = st.slider("Số email gửi trong lượt này:", min_value=5, max_value=30, value=20, step=5)
-        auto_telegram = st.checkbox("Bắn báo cáo Telegram sau khi xong", value=True)
+        tg_c1, tg_c2 = st.columns([2, 1])
+        with tg_c1:
+            auto_telegram = st.checkbox("Bắn báo cáo Telegram", value=True)
+        with tg_c2:
+            if st.button("🔔 Test Bot", help="Bấm để kiểm tra nhận thông báo từ Bot Telegram @HaPhongScanHotelResort_Bot"):
+                from notifications.telegram_bot import send_telegram_message, get_chat_id_from_bot
+                cid = get_chat_id_from_bot()
+                if cid:
+                    send_telegram_message("🔔 [Hà Phong Visuals] Kết nối Bot thành công! Hệ thống đã sẵn sàng bắn thông báo realtime cho anh.", chat_id=cid)
+                    st.success("✅ Đã bắn thông báo test về Telegram của anh!")
+                else:
+                    st.warning("⚠️ Mở Telegram tìm bot **@HaPhongScanHotelResort_Bot** và bấm **START** trước nhé!")
 
     with col_btn:
         st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
@@ -756,61 +767,96 @@ with tab_auto:
             .all()
         )
 
-        # BỘ LỌC ĐẶC CÁCH: GỬI THEO TỪNG KHÁCH SẠN (HOTEL-BY-HOTEL)
-        # Khách sạn A: Gửi cho GM + DOSM + SM + Marketing + Sales của KS A
-        # Sau đó mới chuyển sang Khách sạn B: Gửi GM + DOSM + Marketing của KS B
+        # ── GIAI ĐOẠN 3: GỬI CHIẾN DỊCH THEO CHIẾN THUẬT BẬC THANG (WATERFALL CADENCE) ──
+        status_box.update(label="📨 Bước 3/4: Đang gửi email theo Chiến Thuật Bậc Thang (1 người/KS/ngày)...")
+        add_log("🚀 BẮT ĐẦU GIAI ĐOẠN 3: Gửi email chiến dịch theo Bậc Thang (Waterfall Outreach)...")
+
+        from campaign.email_sender import send_email
+        from extractor.free_email_finder import is_blacklisted_domain
+        from jinja2 import Template
+
         GENERIC_DISALLOWED = {
             "info", "reservation", "reservations", "booking", "bookings",
             "contact", "reception", "letan", "stay", "hello", "frontdesk",
             "enquiry", "enquiries", "admin", "office", "fnb", "spa", "restaurant"
         }
-
-        # Các domain chuỗi toàn cầu không có hộp thư ngắn hạn như gm@hilton.com
         CHAIN_GLOBAL_DOMAINS = {"hilton.com", "marriott.com", "hyatt.com", "ihg.com", "accor.com"}
 
         session = get_session()
-        hotels_to_process = (
+        all_hotels = (
             session.query(Hotel)
             .filter(Hotel.contacts.any())
-            .filter(Hotel.status != "Đã liên hệ")
-            .filter(~Hotel.email_logs.any())
+            .filter(Hotel.status != "Đã reply")
             .order_by(Hotel.rating.desc(), Hotel.review_count.desc())
             .all()
         )
 
         seen_emails = set()
         pending = []
+        now = datetime.now()
 
-        for h in hotels_to_process:
-            # Lấy tất cả các email lãnh đạo chưa gửi của khách sạn này
-            hotel_contacts = (
+        for h in all_hotels:
+            if len(pending) >= auto_email_limit:
+                break
+
+            # Kiểm tra lịch sử email đã gửi của khách sạn này
+            past_logs = (
+                session.query(EmailLog)
+                .filter(EmailLog.hotel_id == h.id)
+                .order_by(EmailLog.sent_at.desc())
+                .all()
+            )
+
+            # Lấy toàn bộ contacts lãnh đạo của khách sạn này xếp theo thứ bậc
+            contacts = (
                 session.query(Contact)
                 .filter(Contact.hotel_id == h.id)
-                .filter(Contact.email.isnot(None), Contact.email != "", ~Contact.email_logs.any())
+                .filter(Contact.email.isnot(None), Contact.email != "")
                 .order_by(Contact.confidence.desc())
                 .all()
             )
 
-            for c in hotel_contacts:
-                c_email = c.email.lower().strip()
-                if c_email in seen_emails:
+            target_contact = None
+
+            if not past_logs:
+                # ── BẬC 1 (NGÀY 1): Gửi Tổng Giám Đốc (GM) ──
+                target_contact = next((c for c in contacts if (c.confidence or 0) >= 95), None)
+                if not target_contact and contacts:
+                    target_contact = contacts[0]
+            else:
+                # Đã từng gửi email trước đó ──> Kiểm tra thời gian giãn cách tối thiểu (20-24h)
+                last_log = past_logs[0]
+                hours_since_last = (now - last_log.sent_at).total_seconds() / 3600.0 if last_log.sent_at else 999
+
+                if hours_since_last < 20.0:
+                    # Chưa đủ 24 tiếng giãn cách ──> Bỏ qua KS này hôm nay để tránh spam!
                     continue
 
-                prefix = c_email.split("@")[0].lower()
-                if prefix in GENERIC_DISALLOWED:
-                    continue
+                sent_contact_ids = {pl.contact_id for pl in past_logs}
 
-                dom = c_email.split("@")[-1].strip()
-                if is_blacklisted_domain(dom) or (dom in CHAIN_GLOBAL_DOMAINS and len(prefix) <= 3):
-                    continue
+                # ── BẬC 2 / BẬC 3 / BẬC 4: Chọn chức danh tiếp theo chưa gửi ──
+                for c in contacts:
+                    if c.id not in sent_contact_ids:
+                        target_contact = c
+                        break
 
-                seen_emails.add(c_email)
-                pending.append(c)
-                if len(pending) >= auto_email_limit:
-                    break
+            if not target_contact:
+                continue
 
-            if len(pending) >= auto_email_limit:
-                break
+            c_email = target_contact.email.lower().strip()
+            if c_email in seen_emails:
+                continue
+
+            prefix = c_email.split("@")[0].lower()
+            if prefix in GENERIC_DISALLOWED:
+                continue
+
+            dom = c_email.split("@")[-1].strip()
+            if is_blacklisted_domain(dom) or (dom in CHAIN_GLOBAL_DOMAINS and len(prefix) <= 3):
+                continue
+
+            seen_emails.add(c_email)
+            pending.append(target_contact)
 
         sent_count = 0
         if not pending:

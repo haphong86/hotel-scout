@@ -1,6 +1,6 @@
 {
-  "version": "v2.6.3",
-  "build_time": "21/08/2026 07:50",
-  "commit": "55c481e",
-  "release_notes": "Strict 1-Time Sending Rule Per Hotel (No duplicate outreach to contacted hotels)"
+  "version": "v2.7.0",
+  "build_time": "21/08/2026 08:00",
+  "commit": "848da07",
+  "release_notes": "Active Waterfall Cadence Outreach & Telegram Realtime Notifier Integration"
 }

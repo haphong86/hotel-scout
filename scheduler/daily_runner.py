@@ -156,52 +156,77 @@ def run_daily_autopilot_job():
     }
     CHAIN_GLOBAL_DOMAINS = {"hilton.com", "marriott.com", "hyatt.com", "ihg.com", "accor.com"}
 
-    hotels_to_process = (
+    all_hotels = (
         session.query(Hotel)
         .filter(Hotel.contacts.any())
-        .filter(Hotel.status != "Đã liên hệ")
-        .filter(~Hotel.email_logs.any())
+        .filter(Hotel.status != "Đã reply")
         .order_by(Hotel.rating.desc(), Hotel.review_count.desc())
         .all()
     )
 
     seen_emails = set()
     sent_count = 0
+    now = datetime.now()
 
-    for h in hotels_to_process:
+    for h in all_hotels:
         if sent_count >= 20:
             break
 
-        hotel_contacts = (
+        past_logs = (
+            session.query(EmailLog)
+            .filter(EmailLog.hotel_id == h.id)
+            .order_by(EmailLog.sent_at.desc())
+            .all()
+        )
+
+        contacts = (
             session.query(Contact)
             .filter(Contact.hotel_id == h.id)
-            .filter(Contact.email.isnot(None), Contact.email != "", ~Contact.email_logs.any())
+            .filter(Contact.email.isnot(None), Contact.email != "")
             .order_by(Contact.confidence.desc())
             .all()
         )
 
-        for c in hotel_contacts:
-            if sent_count >= 20:
-                break
+        target_contact = None
 
-            c_email = c.email.lower().strip()
-            if c_email in seen_emails:
+        if not past_logs:
+            target_contact = next((c for c in contacts if (c.confidence or 0) >= 95), None)
+            if not target_contact and contacts:
+                target_contact = contacts[0]
+        else:
+            last_log = past_logs[0]
+            hours_since_last = (now - last_log.sent_at).total_seconds() / 3600.0 if last_log.sent_at else 999
+            if hours_since_last < 20.0:
                 continue
 
-            prefix = c_email.split("@")[0].lower()
-            if prefix in GENERIC_DISALLOWED:
-                continue
+            sent_contact_ids = {pl.contact_id for pl in past_logs}
+            for c in contacts:
+                if c.id not in sent_contact_ids:
+                    target_contact = c
+                    break
 
-            c_dom = c_email.split("@")[-1].strip()
-            if is_blacklisted_domain(c_dom) or (c_dom in CHAIN_GLOBAL_DOMAINS and len(prefix) <= 3):
-                continue
+        if not target_contact:
+            continue
 
-            # Kiểm tra máy chủ mail trước khi gửi
-            mx = check_mx(c_dom)
-            if not mx:
-                continue
+        c = target_contact
+        c_email = c.email.lower().strip()
+        if c_email in seen_emails:
+            continue
 
-            seen_emails.add(c_email)
+        prefix = c_email.split("@")[0].lower()
+        if prefix in GENERIC_DISALLOWED:
+            continue
+
+        c_dom = c_email.split("@")[-1].strip()
+        if is_blacklisted_domain(c_dom) or (c_dom in CHAIN_GLOBAL_DOMAINS and len(prefix) <= 3):
+            continue
+
+        # Kiểm tra máy chủ mail trước khi gửi
+        mx = check_mx(c_dom)
+        if not mx:
+            continue
+
+        seen_emails.add(c_email)
 
         h = c.hotel
         h_city = h.city or "Việt Nam"
