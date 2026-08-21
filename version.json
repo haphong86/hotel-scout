@@ -1,6 +1,6 @@
 {
-  "version": "v3.4.0",
-  "build_time": "21/08/2026 19:30",
-  "commit": "fadfbba",
-  "release_notes": "Consolidated 24/7/365 system monitor tab, streamlined autopilot home view"
+  "version": "v3.5.0",
+  "build_time": "21/08/2026 19:57",
+  "commit": "377e9c7",
+  "release_notes": "Deploy 2-tier Queue (Today Top 20 + Backlog 21+ Promotion) and Continuous 24/7 Verifier"
 }
