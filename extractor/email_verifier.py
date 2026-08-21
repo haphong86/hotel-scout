@@ -72,10 +72,16 @@ def check_mx(domain: str) -> Optional[str]:
     Kiểm tra NGHIÊM NGẶT máy chủ MX của domain bằng Cloudflare/Google DNS.
     Trả về tên mail server nếu domain có MX record hoạt động thật, None nếu không.
     """
-    if not domain or "." not in domain:
+    if not domain or not isinstance(domain, str) or "." not in domain:
         return None
 
     domain = domain.lower().strip()
+    if " " in domain or "@" in domain or ":" in domain or "/" in domain:
+        return None
+
+    if not re.match(r'^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$', domain):
+        return None
+
     if domain in _mx_cache:
         return _mx_cache[domain]
 

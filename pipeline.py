@@ -187,7 +187,13 @@ def save_verified_contacts(hotel_id: int, verified: List[Dict]) -> int:
                 continue  # Bỏ qua email INVALID/NO_MX
 
             email = e.get("email", "").strip().lower()
-            if not email:
+            if not email or " " in email or "http" in email or ":" in email or "/" in email or email.count("@") != 1:
+                continue
+            if not re.match(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$', email):
+                continue
+            domain_part = email.split("@")[1]
+            tld_part = domain_part.split(".")[-1]
+            if not tld_part.isalpha() or len(tld_part) < 2:
                 continue
 
             # Không thêm trùng

@@ -1,6 +1,6 @@
 {
-  "version": "v3.3.0",
-  "build_time": "21/08/2026 08:58",
-  "commit": "6e9b4d1",
-  "release_notes": "Intelligent Prioritized Outreach Queue (#1 to #20) & Pre-Opening Top Priority Engine"
+  "version": "v3.3.1",
+  "build_time": "21/08/2026 09:29",
+  "commit": "8f3b2d1",
+  "release_notes": "Strict RFC Email Sanitizer & Database Purge of Malformed Scraped Domains"
 }

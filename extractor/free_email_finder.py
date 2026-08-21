@@ -177,10 +177,26 @@ def is_blacklisted_domain(domain: str) -> bool:
 
 
 def get_domain_from_website(website: str) -> str:
-    """Trích domain từ URL"""
+    """Trích domain sạch từ URL website — loại bỏ 100% SĐT, chuỗi lỗi, email"""
+    if not website or not isinstance(website, str):
+        return ""
+    website = website.strip().lower()
+    # Nếu chứa @ -> đây là email hoặc chuỗi rác, không phải website
+    if "@" in website or " " in website or len(website) < 4:
+        return ""
     try:
-        parsed = urlparse(website if website.startswith("http") else "https://" + website)
-        domain = parsed.netloc.replace("www.", "").lower().strip()
+        if not website.startswith("http://") and not website.startswith("https://"):
+            website = "https://" + website
+        parsed = urlparse(website)
+        domain = parsed.netloc or parsed.path
+        domain = domain.split(":")[0].replace("www.", "").strip().lower()
+        # Kiểm tra regex domain chuẩn quốc tế: chỉ chứa chữ, số, dấu gạch ngang, dấu chấm
+        if not re.match(r'^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$', domain):
+            return ""
+        # Phải có đuôi TLD hợp lệ (ít nhất 2 ký tự chữ cái)
+        tld = domain.split(".")[-1]
+        if not tld.isalpha() or len(tld) < 2:
+            return ""
         if is_blacklisted_domain(domain):
             return ""
         return domain

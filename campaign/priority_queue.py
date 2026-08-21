@@ -1,12 +1,4 @@
-"""
-campaign/priority_queue.py — Hệ thống Hàng Đợi Gửi Email Ưu Tiên Thông Minh (#1 ➔ #N)
-Xếp hạng ưu tiên tuyệt đối:
-1. Dự án Pre-Opening / Sắp khai trương / Hoàn thiện nội thất (CẦN GẤP ẢNH)
-2. Khách sạn mới mở trong 90 ngày (Opening Soon)
-3. Hot Leads theo Lead Score (Score ≥ 70) với Email đã xác thực VALID
-4. Tiềm năng (Score 50–69)
-"""
-import sys, os
+import sys, os, re
 from datetime import datetime, timedelta
 from typing import List, Dict
 
@@ -14,6 +6,22 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from database.models import get_session, Hotel, Contact, EmailLog, PreOpeningProject
 from scoring import score_hotel
 from extractor.free_email_finder import is_blacklisted_domain
+
+
+def is_strictly_valid_email(email: str) -> bool:
+    """Kiểm tra email chuẩn RFC 5322: 1 dấu @, không khoảng trắng, không http, đuôi domain hợp lệ"""
+    if not email or not isinstance(email, str):
+        return False
+    email = email.strip().lower()
+    if " " in email or "http" in email or ":" in email or "/" in email or email.count("@") != 1:
+        return False
+    if not re.match(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$', email):
+        return False
+    domain = email.split("@")[1]
+    tld = domain.split(".")[-1]
+    if not tld.isalpha() or len(tld) < 2:
+        return False
+    return True
 
 
 def get_prioritized_outreach_queue(limit: int = 20, selected_cities: list = None) -> List[Dict]:
@@ -46,7 +54,7 @@ def get_prioritized_outreach_queue(limit: int = 20, selected_cities: list = None
         if len(queue) >= limit:
             break
         c_email = (p.contact_email or "").strip().lower()
-        if not c_email or c_email in seen_emails or is_blacklisted_domain(c_email.split("@")[-1]):
+        if not is_strictly_valid_email(c_email) or c_email in seen_emails or is_blacklisted_domain(c_email.split("@")[-1]):
             continue
 
         queue.append({
@@ -141,7 +149,7 @@ def get_prioritized_outreach_queue(limit: int = 20, selected_cities: list = None
             for c in sorted_contacts:
                 if c.id not in sent_contact_ids:
                     c_email = (c.email or "").strip().lower()
-                    if c_email and c_email not in seen_emails and not is_blacklisted_domain(c_email.split("@")[-1]):
+                    if is_strictly_valid_email(c_email) and c_email not in seen_emails and not is_blacklisted_domain(c_email.split("@")[-1]):
                         chosen_c = c
                         break
 
