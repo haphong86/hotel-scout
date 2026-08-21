@@ -1,6 +1,6 @@
 {
-  "version": "v3.1.3",
-  "build_time": "21/08/2026 08:32",
-  "commit": "8db33cf",
-  "release_notes": "Enforce Global IPv4 Socket Resolver across all modules (100% Fix for Errno 101 on Cloud Containers)"
+  "version": "v3.1.4",
+  "build_time": "21/08/2026 08:36",
+  "commit": "c479e0a",
+  "release_notes": "Fixed Minified React Error #185 (LinkColumn text formatting) & Completed Full 9-Module System Verification"
 }

@@ -1502,7 +1502,7 @@ with tab1:
                             max_value=100,
                             format="%d",
                         ),
-                        "Website": st.column_config.LinkColumn("Website"),
+                        "Website": st.column_config.TextColumn("Website"),
                     },
                 )
 
@@ -1565,7 +1565,7 @@ with tab1:
                         min_value=0, max_value=100,
                         format="%d",
                     ),
-                    "Website": st.column_config.LinkColumn("Website"),
+                    "Website": st.column_config.TextColumn("Website"),
                 },
             )
 
