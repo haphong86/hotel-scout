@@ -375,7 +375,7 @@ def run_continuous_scout_cycle():
                 cand = generate_candidates(h)
                 verified = verify_candidates(cand)
                 if verified:
-                    save_verified_contacts(verified, session)
+                    save_verified_contacts(h.id, verified)
                     verified_count += len(verified)
         session.commit()
         log_activity("🛡️ Kiểm tra & Verify Email", f"Đã xác thực máy chủ MX và lưu {verified_count} email sống")

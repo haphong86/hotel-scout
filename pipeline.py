@@ -7,12 +7,13 @@ Chỉ lưu email đã verify → KHÔNG bao giờ gửi vào địa chỉ không
 import time
 import sys
 import os
+import re
 sys.path.insert(0, os.path.dirname(__file__))
 
 from dotenv import load_dotenv
 load_dotenv()
 
-from typing import List, Dict, Callable, Optional, Tuple, Set
+from typing import List, Dict, Callable, Optional, Tuple, Set, Any
 from sqlalchemy.orm import joinedload
 from database.models import get_session, Hotel, Contact, init_db
 from extractor.free_email_finder import (
@@ -55,27 +56,31 @@ def get_hotels_to_process(
         session.close()
 
 
-def generate_candidates(hotel: Hotel) -> List[Dict]:
+def generate_candidates(hotel: Any) -> List[Dict]:
     """
     Sinh ứng viên đa kênh: Cào Website + Sinh mẫu Lãnh đạo phỏng đoán (GM, Marcom, DOSM).
-    TẤT CẢ các email phỏng đoán BẮT BUỘC phải vượt qua bài kiểm tra Hộp thư sống (SMTP Probe 250 OK) ở Bước 2.
+    Tương thích an toàn với cả đối tượng Hotel (SQLAlchemy), Dict, hoặc Class bất kỳ.
     """
     candidates = []
+    
+    # Trích xuất an toàn thuộc tính
+    h_website = getattr(hotel, "website", None) or (hotel.get("website") if isinstance(hotel, dict) else None) or ""
+    h_name = getattr(hotel, "name", None) or (hotel.get("name") if isinstance(hotel, dict) else None) or ""
 
     # 1. Thu thập email thực tế xuất hiện trên Website chính thức của Khách sạn
-    if hotel.website and str(hotel.website).startswith("http"):
-        domain = get_domain_from_website(hotel.website)
+    if h_website and str(h_website).startswith("http"):
+        domain = get_domain_from_website(h_website)
         if domain and not is_blacklisted_domain(domain):
             try:
                 from extractor.website_crawler import crawl_hotel_website
-                res = crawl_hotel_website(hotel.website, timeout=4)
+                res = crawl_hotel_website(h_website, timeout=4)
                 for item in res.get("emails", []):
                     candidates.append({
                         "email": item["email"],
                         "confidence": item.get("score", 90),
                         "source": "website_crawled",
                         "title": item.get("title", "Ban Quản Lý & Tiếp Nhận Liên Hệ"),
-                        "name": item.get("name", hotel.name)
+                        "name": item.get("name", h_name)
                     })
             except Exception:
                 pass
@@ -99,7 +104,7 @@ def generate_candidates(hotel: Hotel) -> List[Dict]:
                         "confidence": score,
                         "source": "pattern_candidate",
                         "title": title,
-                        "name": f"Ban Lãnh Đạo {hotel.name}"
+                        "name": f"Ban Lãnh Đạo {h_name}"
                     })
 
     # Lọc trùng lặp
@@ -181,13 +186,23 @@ def verify_candidates(
 # BƯỚC 4: Lưu email đã verify vào DB
 # ═══════════════════════════════════════════════════════════════
 
-def save_verified_contacts(hotel_id: int, verified: List[Dict]) -> int:
+def save_verified_contacts(hotel_or_id: Any, verified: List[Dict]) -> int:
     """
     Lưu email đã qua verify vào bảng Contact.
-    Chỉ lưu email có can_send=True.
-    Không lưu email trùng.
-    Trả về số email mới lưu.
+    Hỗ trợ linh hoạt cả hotel_id (int), Hotel object, hoặc dict.
     """
+    if hasattr(hotel_or_id, "id"):
+        target_hotel_id = hotel_or_id.id
+    elif isinstance(hotel_or_id, dict):
+        target_hotel_id = hotel_or_id.get("id")
+    elif isinstance(hotel_or_id, int):
+        target_hotel_id = hotel_or_id
+    else:
+        return 0
+
+    if not target_hotel_id:
+        return 0
+
     session = get_session()
     saved = 0
     try:
@@ -207,13 +222,13 @@ def save_verified_contacts(hotel_id: int, verified: List[Dict]) -> int:
 
             # Không thêm trùng
             exists = session.query(Contact).filter(
-                Contact.hotel_id == hotel_id,
+                Contact.hotel_id == target_hotel_id,
                 Contact.email    == email,
             ).first()
 
             if not exists:
                 contact = Contact(
-                    hotel_id      = hotel_id,
+                    hotel_id      = target_hotel_id,
                     email         = email,
                     title         = e.get("title", ""),
                     confidence    = e.get("verify_confidence",
