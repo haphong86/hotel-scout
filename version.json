@@ -1,6 +1,6 @@
 {
-  "version": "v3.3.7",
-  "build_time": "21/08/2026 10:13",
-  "commit": "1c89f2a",
-  "release_notes": "Eliminate database is locked with safe_commit auto-retry & robust email error handling"
+  "version": "v3.4.0",
+  "build_time": "21/08/2026 19:30",
+  "commit": "fadfbba",
+  "release_notes": "Consolidated 24/7/365 system monitor tab, streamlined autopilot home view"
 }
