@@ -1,6 +1,6 @@
 {
-  "version": "v2.6.2",
-  "build_time": "21/08/2026 07:30",
-  "commit": "9d5992e",
-  "release_notes": "Hotel-by-Hotel Decision-Maker Outreach, Multi-Channel Scanners & IMAP Bounce Detector"
+  "version": "v2.6.3",
+  "build_time": "21/08/2026 07:50",
+  "commit": "55c481e",
+  "release_notes": "Strict 1-Time Sending Rule Per Hotel (No duplicate outreach to contacted hotels)"
 }

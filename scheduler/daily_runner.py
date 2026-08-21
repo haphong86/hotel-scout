@@ -159,6 +159,8 @@ def run_daily_autopilot_job():
     hotels_to_process = (
         session.query(Hotel)
         .filter(Hotel.contacts.any())
+        .filter(Hotel.status != "Đã liên hệ")
+        .filter(~Hotel.email_logs.any())
         .order_by(Hotel.rating.desc(), Hotel.review_count.desc())
         .all()
     )
