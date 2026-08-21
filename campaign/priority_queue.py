@@ -27,13 +27,24 @@ def is_strictly_valid_email(email: str) -> bool:
 def get_prioritized_outreach_queue(limit: int = 20, selected_cities: list = None) -> List[Dict]:
     """
     Xây dựng danh sách hàng đợi gửi thư từ #1 đến #limit.
+    Tự động LOẠI BỎ 100% các khách sạn & email đã gửi, luôn đẩy các email CHƯA GỬI lên đầu.
     """
     session = get_session()
     now = datetime.now()
-    cutoff_time = now - timedelta(hours=20)  # Đảm bảo cách nhau >= 20-24h
     queue = []
     seen_hotel_names = set()
-    seen_emails = set()
+    
+    # 1. Thu thập danh sách email và hotel_id ĐÃ TỪNG GỬI để loại trừ tuyệt đối
+    sent_logs = session.query(EmailLog).all()
+    seen_emails = {
+        l.subject.lower() for l in sent_logs if l.subject
+    }
+    sent_hotel_ids = {
+        l.hotel_id for l in sent_logs if l.hotel_id
+    }
+    for l in sent_logs:
+        if l.contact and l.contact.email:
+            seen_emails.add(l.contact.email.strip().lower())
 
     # ══════════════════════════════════════════════════════════
     # NHÓM 1: DỰ ÁN PRE-OPENING / SẮP KHAI TRƯƠNG (ƯU TIÊN SỐ 1 TUYỆT ĐỐI)
@@ -46,7 +57,6 @@ def get_prioritized_outreach_queue(limit: int = 20, selected_cities: list = None
     if selected_cities:
         q_pre = q_pre.filter(PreOpeningProject.city.in_(selected_cities))
 
-    # Sắp xếp Rất Nóng lên trước
     pre_projects = q_pre.all()
     pre_projects.sort(key=lambda p: 0 if "RẤT NÓNG" in (p.priority or "") else 1)
 
@@ -81,13 +91,13 @@ def get_prioritized_outreach_queue(limit: int = 20, selected_cities: list = None
         seen_emails.add(c_email)
 
     # ══════════════════════════════════════════════════════════
-    # NHÓM 2: KHÁCH SẠN MỚI & HOT LEADS TRONG DATABASE (WATERFALL CADENCE)
+    # NHÓM 2: KHÁCH SẠN MỚI & CHƯA TỪNG GỬI EMAIL (WATERFALL CADENCE)
     # ══════════════════════════════════════════════════════════
     if len(queue) < limit:
-        # Lấy các khách sạn có contacts và chưa bị cấm
+        # Lấy các khách sạn CHƯA TỪNG LIÊN HỆ
         q_hotels = session.query(Hotel).filter(
-            Hotel.status != "Đã reply",
-            Hotel.status != "Không quan tâm"
+            Hotel.status.notin_(["Đã liên hệ", "Đã reply", "Không quan tâm"]),
+            Hotel.id.notin_(sent_hotel_ids) if sent_hotel_ids else True
         )
         if selected_cities:
             q_hotels = q_hotels.filter(Hotel.city.in_(selected_cities))
@@ -98,15 +108,6 @@ def get_prioritized_outreach_queue(limit: int = 20, selected_cities: list = None
         scored_hotels = []
         for h in candidate_hotels:
             if h.name.lower() in seen_hotel_names:
-                continue
-
-            # Kiểm tra xem hôm nay KS này đã gửi email chưa (< 20h)
-            recent_log = (
-                session.query(EmailLog)
-                .filter(EmailLog.hotel_id == h.id, EmailLog.sent_at >= cutoff_time)
-                .first()
-            )
-            if recent_log:
                 continue
 
             score_data = score_hotel(h)
