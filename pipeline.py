@@ -57,22 +57,22 @@ def get_hotels_to_process(
 
 def generate_candidates(hotel: Hotel) -> List[Dict]:
     """
-    Trích xuất 100% EMAIL THẬT CÔNG KHAI từ Website & Google của Khách sạn.
-    Tuyệt đối KHÔNG sinh email đoán mò (chống 100% lỗi 550 Mailbox Not Found).
+    Sinh ứng viên đa kênh: Cào Website + Sinh mẫu Lãnh đạo phỏng đoán (GM, Marcom, DOSM).
+    TẤT CẢ các email phỏng đoán BẮT BUỘC phải vượt qua bài kiểm tra Hộp thư sống (SMTP Probe 250 OK) ở Bước 2.
     """
     candidates = []
 
-    # 1. Crawl trực tiếp từ Website chính thức của Khách sạn
+    # 1. Thu thập email thực tế xuất hiện trên Website chính thức của Khách sạn
     if hotel.website and str(hotel.website).startswith("http"):
         domain = get_domain_from_website(hotel.website)
         if domain and not is_blacklisted_domain(domain):
             try:
                 from extractor.website_crawler import crawl_hotel_website
-                res = crawl_hotel_website(hotel.website, timeout=5)
+                res = crawl_hotel_website(hotel.website, timeout=4)
                 for item in res.get("emails", []):
                     candidates.append({
                         "email": item["email"],
-                        "confidence": item.get("score", 85),
+                        "confidence": item.get("score", 90),
                         "source": "website_crawled",
                         "title": item.get("title", "Ban Quản Lý & Tiếp Nhận Liên Hệ"),
                         "name": item.get("name", hotel.name)
@@ -80,19 +80,29 @@ def generate_candidates(hotel: Hotel) -> List[Dict]:
             except Exception:
                 pass
 
-    # 2. Nếu website không có email hoặc không có website -> Tìm trên Google/Social chính thức
-    if not candidates:
-        try:
-            from extractor.free_email_finder import google_search_email
-            found = google_search_email(f"{hotel.name} {hotel.city or ''} email liên hệ")
-            for f in found:
-                f_dom = f.get("email", "").split("@")[-1].lower()
-                if not is_blacklisted_domain(f_dom):
-                    candidates.append(f)
-        except Exception:
-            pass
+            # 2. Sinh thêm các mẫu Lãnh đạo phỏng đoán từ tên miền chính hãng (GM, DOSM, Marcom)
+            leadership_patterns = [
+                ("gm@", "Tổng Giám Đốc (General Manager)", 95),
+                ("generalmanager@", "Tổng Giám Đốc (General Manager)", 95),
+                ("dosm@", "Giám Đốc Tiếp Thị & Kinh Doanh (DOSM)", 90),
+                ("marcom@", "Giám Đốc / Trưởng Phòng Marketing & Truyền Thông", 90),
+                ("marketing@", "Phòng Tiếp Thị & Truyền Thông", 85),
+                ("sales@", "Phòng Kinh Doanh (Sales Director)", 85),
+                ("info@", "Ban Quản Lý & Tiếp Nhận Hợp Tác", 80),
+            ]
+            existing_emails = {c["email"].lower() for c in candidates}
+            for prefix, title, score in leadership_patterns:
+                cand_em = f"{prefix}{domain}".lower()
+                if cand_em not in existing_emails:
+                    candidates.append({
+                        "email": cand_em,
+                        "confidence": score,
+                        "source": "pattern_candidate",
+                        "title": title,
+                        "name": f"Ban Lãnh Đạo {hotel.name}"
+                    })
 
-    # Lọc sạch trùng lặp
+    # Lọc trùng lặp
     seen = set()
     clean_candidates = []
     for c in candidates:
