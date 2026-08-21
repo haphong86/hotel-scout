@@ -881,7 +881,10 @@ with tab_auto:
             tracking_domain = os.getenv("RAILWAY_PUBLIC_DOMAIN", "hotel-scout-production.up.railway.app")
             tracking_base = f"https://{tracking_domain}" if not tracking_domain.startswith("http") else tracking_domain
 
-            for idx, item in enumerate(prioritized_items):
+        from database.models import safe_commit
+
+        for idx, item in enumerate(prioritized_items):
+            try:
                 p_type = item.get("type", "hotel")
                 h_name = item["hotel_name"]
                 h_city = item["city"]
@@ -906,7 +909,7 @@ with tab_auto:
                         db_proj = session.query(PreOpeningProject).get(item.get("project_id"))
                         if db_proj:
                             db_proj.status = "Đã gửi Email Launching"
-                            session.commit()
+                            safe_commit(session)
                     _t.sleep(1.5)
                 else:
                     c_dom = to_mail.split("@")[-1].lower().strip()
@@ -932,7 +935,7 @@ with tab_auto:
                         subject=subj, status="Đang gửi", sent_at=get_now_vn()
                     )
                     session.add(elog)
-                    session.commit()
+                    safe_commit(session)
 
                     click_tracked_url = f"{tracking_base}/?track=click&id={elog.id}&dest=https://haphong.com"
                     body_with_links = body_raw.replace('href="https://haphong.com"', f'href="{click_tracked_url}"')
@@ -947,12 +950,15 @@ with tab_auto:
                         db_h = session.query(Hotel).get(item.get("hotel_id"))
                         if db_h:
                             db_h.status = "Đã liên hệ"
-                        session.commit()
+                        safe_commit(session)
                     else:
                         elog.status = "Thất bại"
-                        elog.error_msg = res.get("message", "")
-                        session.commit()
+                        elog.error_msg = res.get("error", "") or res.get("message", "")
+                        safe_commit(session)
                     _t.sleep(1.5)
+            except Exception as e_item:
+                add_log(f"  ⚠️ Lỗi xử lý gửi: {e_item}")
+                continue
 
         session.close()
         add_log(f"✅ GIAI ĐOẠN 3 XONG: Đã gửi thành công {sent_count} email!")

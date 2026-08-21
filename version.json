@@ -1,6 +1,6 @@
 {
-  "version": "v3.3.6",
-  "build_time": "21/08/2026 10:03",
-  "commit": "7b19de2",
-  "release_notes": "Global Vietnam UTC+7 Timezone Synchronization across Heartbeat Stream & Server Logs"
+  "version": "v3.3.7",
+  "build_time": "21/08/2026 10:13",
+  "commit": "1c89f2a",
+  "release_notes": "Eliminate database is locked with safe_commit auto-retry & robust email error handling"
 }

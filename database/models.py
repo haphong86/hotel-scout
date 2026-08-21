@@ -220,6 +220,22 @@ def get_session():
     return _SessionFactory()
 
 
+def safe_commit(session, max_retries: int = 5, delay: float = 0.5) -> bool:
+    """Commit an toàn tuyệt đối chống SQLite database is locked với cơ chế auto-retry"""
+    import time
+    for attempt in range(max_retries):
+        try:
+            session.commit()
+            return True
+        except Exception as e:
+            if "locked" in str(e).lower() and attempt < max_retries - 1:
+                time.sleep(delay * (attempt + 1))
+                continue
+            session.rollback()
+            raise e
+    return False
+
+
 if __name__ == "__main__":
     print("🗄️ Khởi tạo database với chế độ WAL...")
     init_db()

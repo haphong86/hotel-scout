@@ -192,6 +192,8 @@ def run_daily_autopilot_job():
         rec_name = item["recipient_name"]
         rec_role = item["recipient_role"]
 
+        from database.models import safe_commit, get_now_vn
+
         if p_type == "pre_opening":
             subj = f"[{h_name}] — Giải pháp Visual & Bộ ảnh Kiến trúc Launching khai trương tại {h_city}"
             body = Template(tpl_pre).render(
@@ -201,12 +203,10 @@ def run_daily_autopilot_job():
             res = send_email(to_mail, rec_name or "", subj, body)
             if res.get("success"):
                 sent_count += 1
-                session_p = get_session()
-                db_proj = session_p.query(PreOpeningProject).get(item.get("project_id"))
+                db_proj = session.query(PreOpeningProject).get(item.get("project_id"))
                 if db_proj:
                     db_proj.status = "Đã gửi Email Launching"
-                    session_p.commit()
-                session_p.close()
+                    safe_commit(session)
             time.sleep(2.0)
         else:
             c_dom = to_mail.split("@")[-1].lower().strip()
@@ -225,13 +225,12 @@ def run_daily_autopilot_job():
                     city=h_city, to_email=to_mail, subject=subj
                 )
 
-            session_l = get_session()
             elog = EmailLog(
                 hotel_id=item.get("hotel_id"), contact_id=item.get("contact_id"), sequence_num=1,
-                subject=subj, status="Đang gửi", sent_at=datetime.now()
+                subject=subj, status="Đang gửi", sent_at=get_now_vn()
             )
-            session_l.add(elog)
-            session_l.flush()
+            session.add(elog)
+            safe_commit(session)
 
             pixel_tag = f'<img src="{tracking_url}/?track=open&id={elog.id}" width="1" height="1" style="display:none;" />'
             body_final = body_raw.replace("</body>", f"{pixel_tag}</body>") if "</body>" in body_raw else body_raw + pixel_tag
@@ -240,15 +239,14 @@ def run_daily_autopilot_job():
             if res.get("success"):
                 sent_count += 1
                 elog.status = "Đã gửi"
-                db_h = session_l.query(Hotel).get(item.get("hotel_id"))
+                db_h = session.query(Hotel).get(item.get("hotel_id"))
                 if db_h:
                     db_h.status = "Đã liên hệ"
-                session_l.commit()
+                safe_commit(session)
             else:
                 elog.status = "Thất bại"
-                elog.error_msg = res.get("message", "")
-                session_l.commit()
-            session_l.close()
+                elog.error_msg = res.get("error", "") or res.get("message", "")
+                safe_commit(session)
             time.sleep(2.0)
 
     session.close()
