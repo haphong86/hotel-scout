@@ -1,6 +1,6 @@
 {
-  "version": "v3.3.3",
-  "build_time": "21/08/2026 09:42",
-  "commit": "9b12a84",
-  "release_notes": "Replace Streamlit Glide Data Grid with Fast Native Luxury HTML Table to prevent React 185"
+  "version": "v3.3.4",
+  "build_time": "21/08/2026 09:53",
+  "commit": "4e7a2b9",
+  "release_notes": "Use st.html for Native Streamlit Table Rendering to fix Markdown Indentation Code-Block issue"
 }

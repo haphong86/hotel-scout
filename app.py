@@ -750,7 +750,7 @@ with tab_auto:
               </table>
             </div>
             """
-            st.markdown(html_table, unsafe_allow_html=True)
+            st.html(html_table)
 
     # ── THỰC THI TOÀN BỘ QUY TRÌNH 1-CLICK ────────────────────
     if start_autopilot_btn:
