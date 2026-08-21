@@ -148,12 +148,19 @@ def verify_candidates(
 
         result: VerifyResult = verify_email(email)
 
+        # NGUYÊN TẮC BẢO VỆ CHỐNG BOUNCE 100%:
+        # Email cào từ Website -> Được gửi (can_send = True)
+        # Email phỏng đoán (pattern_candidate) -> BẮT BUỘC phải là VALID (SMTP 250 OK), nếu chỉ là LIKELY thì KHÔNG ĐƯỢC GỬI
+        can_send_final = result.can_send
+        if candidate.get("source") == "pattern_candidate" and result.status != "VALID":
+            can_send_final = False
+
         enriched = {
             **candidate,
             "verify_status":     result.status,
             "verify_confidence": result.confidence,
             "verify_reason":     result.reason,
-            "can_send":          result.can_send,
+            "can_send":          can_send_final,
         }
         verified.append(enriched)
 
