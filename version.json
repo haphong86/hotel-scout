@@ -1,6 +1,6 @@
 {
-  "version": "v3.1.4",
-  "build_time": "21/08/2026 08:36",
-  "commit": "c479e0a",
-  "release_notes": "Fixed Minified React Error #185 (LinkColumn text formatting) & Completed Full 9-Module System Verification"
+  "version": "v3.1.5",
+  "build_time": "21/08/2026 08:42",
+  "commit": "1a7fd9b",
+  "release_notes": "Total Elimination of React Error #185 (Cleaned DataFrame rendering in HOT LEADS & All Leads)"
 }

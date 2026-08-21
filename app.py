@@ -1394,16 +1394,7 @@ with tab1:
                     "Kích hoạt":    "⏰ Tự động" if sl.triggered_by == "cron" else "👤 Thủ công",
                 })
             df_log = pd.DataFrame(rows)
-            st.dataframe(
-                df_log,
-                use_container_width=True,
-                hide_index=True,
-                column_config={
-                    "Mới lưu": st.column_config.NumberColumn(
-                        "Mới lưu", help="KS mới thêm vào DB"
-                    ),
-                },
-            )
+            st.dataframe(df_log, use_container_width=True, hide_index=True)
 
             # Tổng cộng
             total_new  = sum(sl.new_saved or 0  for sl in _scanlogs)
@@ -1463,15 +1454,15 @@ with tab1:
             for item in scored_list[:limit]:
                 h = item["hotel"]
                 rows.append({
-                    "Score":        item["score"],
-                    "Xếp loại":     item["grade"],
-                    "Tên khách sạn": h.name,
-                    "Thành phố":    h.city or "—",
-                    "Website":      h.website or "—",
-                    "Phone":        h.phone_main or "—",
-                    "Lý do":        " · ".join(item["reasons"][:3]),
-                    "Nguồn":        h.source or "—",
-                    "Trạng thái":   h.status or "—",
+                    "Điểm (Score)": f"{int(item.get('score', 50))}đ",
+                    "Xếp loại":     str(item.get("grade", "HOT")),
+                    "Tên khách sạn": str(h.name),
+                    "Thành phố":    str(h.city or "—"),
+                    "Website":      str(h.website or "—"),
+                    "Hotline":      str(h.phone_main or "—"),
+                    "Lý do ưu tiên": " · ".join(item.get("reasons", [])[:3]),
+                    "Nguồn":        str(h.source or "—"),
+                    "Trạng thái":   str(h.status or "—"),
                 })
             return pd.DataFrame(rows)
 
@@ -1490,21 +1481,7 @@ with tab1:
                 """, unsafe_allow_html=True)
 
                 df_hot = build_scored_df(summary["hot"] + summary["potential"])
-                st.dataframe(
-                    df_hot,
-                    use_container_width=True,
-                    hide_index=True,
-                    column_config={
-                        "Score": st.column_config.ProgressColumn(
-                            "Score",
-                            help="Điểm tiềm năng 0-100",
-                            min_value=0,
-                            max_value=100,
-                            format="%d",
-                        ),
-                        "Website": st.column_config.TextColumn("Website"),
-                    },
-                )
+                st.dataframe(df_hot, use_container_width=True, hide_index=True)
 
                 # Export HOT leads
                 buf_hot = io.BytesIO()
@@ -1523,7 +1500,7 @@ with tab1:
             fc1, fc2 = st.columns([2, 3])
             sort_by = fc1.selectbox(
                 "Sắp xếp",
-                ["Score (cao → thấp)", "Tên A→Z", "Thành phố", "Nguồn"],
+                ["Điểm cao → thấp", "Tên A→Z", "Thành phố", "Nguồn"],
                 label_visibility="collapsed",
             )
             search_kw = fc2.text_input(
@@ -1544,8 +1521,8 @@ with tab1:
             df_all = build_scored_df(all_scored, limit=500)
 
             # Sắp xếp
-            if "Score" in sort_by:
-                df_all = df_all.sort_values("Score", ascending=False)
+            if "Điểm" in sort_by:
+                pass
             elif "Tên" in sort_by:
                 df_all = df_all.sort_values("Tên khách sạn")
             elif "Thành phố" in sort_by:
@@ -1554,20 +1531,7 @@ with tab1:
                 df_all = df_all.sort_values("Nguồn")
 
             st.caption(f"Hiển thị {len(df_all)} khách sạn")
-            st.dataframe(
-                df_all,
-                use_container_width=True,
-                hide_index=True,
-                column_config={
-                    "Score": st.column_config.ProgressColumn(
-                        "Score",
-                        help="Điểm tiềm năng 0-100",
-                        min_value=0, max_value=100,
-                        format="%d",
-                    ),
-                    "Website": st.column_config.TextColumn("Website"),
-                },
-            )
+            st.dataframe(df_all, use_container_width=True, hide_index=True)
 
             buf_all = io.BytesIO()
             df_all.to_excel(buf_all, index=False, engine="openpyxl")
