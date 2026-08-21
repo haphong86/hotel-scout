@@ -90,17 +90,22 @@ def crawl_hotel_website(website_url: str, timeout: int = 5) -> Dict:
         except Exception:
             continue
 
-    # Ưu tiên xếp hạng email: info/sales/reservation/contact
-    def email_priority_score(em: str) -> int:
-        em_l = em.lower()
-        if any(em_l.startswith(k) for k in ["info@", "sales@", "reservation@", "res@", "contact@", "marketing@", "gm@", "booking@"]):
-            return 95
-        return 75
+    # Tích hợp Bộ suy luận Chức vụ & Danh tính AI
+    from extractor.ai_contact_reasoner import reason_contact_role
 
-    scored = [
-        {"email": e, "score": email_priority_score(e), "source": "website_crawled"}
-        for e in discovered_emails
-    ]
+    scored = []
+    for e in discovered_emails:
+        reasoning = reason_contact_role(e)
+        scored.append({
+            "email": e,
+            "score": 95 if reasoning["is_decision_maker"] else 80,
+            "source": "website_crawled",
+            "name": reasoning["person_name"],
+            "title": reasoning["role_title"],
+            "decision_power": reasoning["decision_power"],
+            "pitch_angle": reasoning["pitch_angle"]
+        })
+
     scored.sort(key=lambda x: -x["score"])
 
     return {

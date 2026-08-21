@@ -72,10 +72,10 @@ def generate_candidates(hotel: Hotel) -> List[Dict]:
                 for item in res.get("emails", []):
                     candidates.append({
                         "email": item["email"],
-                        "confidence": item["score"],
+                        "confidence": item.get("score", 85),
                         "source": "website_crawled",
-                        "title": "Ban Quản Lý & Tiếp Nhận Liên Hệ",
-                        "name": hotel.name
+                        "title": item.get("title", "Ban Quản Lý & Tiếp Nhận Liên Hệ"),
+                        "name": item.get("name", hotel.name)
                     })
             except Exception:
                 pass
