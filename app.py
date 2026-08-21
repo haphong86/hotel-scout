@@ -7,7 +7,14 @@ import pandas as pd
 import json
 import os
 import sys
-from datetime import datetime, timedelta
+import time
+from datetime import datetime, timedelta, timezone
+
+os.environ["TZ"] = "Asia/Ho_Chi_Minh"
+try:
+    time.tzset()
+except Exception:
+    pass
 
 import socket
 

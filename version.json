@@ -1,6 +1,6 @@
 {
-  "version": "v3.3.5",
-  "build_time": "21/08/2026 09:59",
-  "commit": "5d2a9c1",
-  "release_notes": "SQLite WAL Mode & 60s Busy Timeout to eliminate database is locked + Full Vietnam UTC+7 Timezone"
+  "version": "v3.3.6",
+  "build_time": "21/08/2026 10:03",
+  "commit": "7b19de2",
+  "release_notes": "Global Vietnam UTC+7 Timezone Synchronization across Heartbeat Stream & Server Logs"
 }
