@@ -1115,7 +1115,7 @@ with tab_radar:
                         else:
                             st.error(f"⚠️ Lỗi gửi: {res.get('error')}")
 
-                alert_single_btn = st.button("📱 Bắn Dự Án Về Telegram", key=f"tg_single_{p.id}")
+                alert_single_btn = st.button("📱 Bắn Dự Án Về Telegram", key=f"tg_single_{p.id}", use_container_width=True)
                 if alert_single_btn:
                     from notifications.telegram_bot import send_telegram_message
                     p_loc = f"{p.city} · {p.address}" if p.address else p.city
@@ -1133,6 +1133,16 @@ with tab_radar:
                     )
                     send_telegram_message(msg.strip())
                     st.success("✅ Đã bắn chi tiết dự án về Telegram!")
+
+                # Nút kết nối LinkedIn 1-click
+                from campaign.linkedin_helper import generate_linkedin_search_url, generate_linkedin_connect_note
+                li_url = generate_linkedin_search_url(p.name, p.contact_role or "General Manager")
+                st.link_button("💼 Tìm & Nhắn GM Trên LinkedIn", li_url, use_container_width=True, help="Mở LinkedIn tìm đúng profile GM/Lãnh đạo của dự án này")
+                
+                with st.popover("📝 Xem Tin Nhắn LinkedIn Mẫu", use_container_width=True):
+                    li_note = generate_linkedin_connect_note(p.name, p.contact_role or "Anh/Chị", p.city)
+                    st.caption("Copy tin nhắn này để đính kèm khi bấm Connect trên LinkedIn:")
+                    st.code(li_note, language=None)
 
     # Thêm dự án Pre-Opening thủ công
     st.markdown("---")
@@ -1816,7 +1826,7 @@ with tab2:
                     """)
                 
                 with col_info2:
-                    verify_single_btn = st.button(f"🔍 Scan Mail KS này", key=f"verify_h_{h.id}", help="Kiểm tra máy chủ mail và xác thực trạng thái sống của các email thuộc KS này")
+                    verify_single_btn = st.button(f"🔍 Scan Mail KS này", key=f"verify_h_{h.id}", use_container_width=True, help="Kiểm tra máy chủ mail và xác thực trạng thái sống của các email thuộc KS này")
                     if verify_single_btn:
                         from extractor.email_verifier import verify_email
                         v_count = 0
@@ -1830,6 +1840,10 @@ with tab2:
                         session.commit()
                         st.success(f"✅ Đã scan {len(contacts)} email: {v_count} email hoạt động tốt!")
                         st.rerun()
+
+                    from campaign.linkedin_helper import generate_linkedin_search_url
+                    li_h_url = generate_linkedin_search_url(h.name, "General Manager")
+                    st.link_button("💼 Tìm GM Trên LinkedIn", li_h_url, use_container_width=True, help="Mở LinkedIn tìm profile General Manager của khách sạn này")
 
                 # Bảng chi tiết danh bạ các sếp của KS này
                 contact_rows = []
