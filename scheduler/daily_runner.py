@@ -93,19 +93,19 @@ def run_daily_autopilot_job():
             body = Template(tpl_pre).render(
                 hotel_name=h_name, contact_name=rec_name or rec_role or "Ban Lãnh Đạo",
                 city=h_city, est_opening=item.get("est_opening", "sắp tới"),
-                tracking_url=tracking_url, contact_id=item.get("id") or 999
+                tracking_url=tracking_url, contact_id=item.get("id") or item.get("project_id") or 999
             )
         elif item.get("is_international"):
             subj = f"[{h_name}] — Elevating Architectural & Visual Identity in {h_city}"
             body = Template(tpl_en).render(
                 hotel_name=h_name, contact_name=rec_name or rec_role or "General Manager",
-                city=h_city, tracking_url=tracking_url, contact_id=item.get("id") or 999
+                city=h_city, tracking_url=tracking_url, contact_id=item.get("id") or item.get("contact_id") or 999
             )
         else:
             subj = f"[{h_name}] — Giải pháp nâng cấp hình ảnh kiến trúc & visual khách sạn"
             body = Template(tpl_vi).render(
                 hotel_name=h_name, contact_name=rec_name or rec_role or "Tổng Giám Đốc",
-                city=h_city, tracking_url=tracking_url, contact_id=item.get("id") or 999
+                city=h_city, tracking_url=tracking_url, contact_id=item.get("id") or item.get("contact_id") or 999
             )
 
         # Gửi email an toàn
@@ -117,10 +117,12 @@ def run_daily_autopilot_job():
                 
                 # Cập nhật PreOpeningProject hoặc Hotel Lead
                 if p_type == "pre_opening":
-                    proj = session.query(PreOpeningProject).filter(PreOpeningProject.id == item["id"]).first()
-                    if proj:
-                        proj.status = "Đã gửi Email Launching"
-                        safe_commit(session)
+                    p_id = item.get("id") or item.get("project_id")
+                    if p_id:
+                        proj = session.query(PreOpeningProject).filter(PreOpeningProject.id == p_id).first()
+                        if proj:
+                            proj.status = "Đã gửi Email Launching"
+                            safe_commit(session)
                 else:
                     h_obj = session.query(Hotel).filter(Hotel.id == item["hotel_id"]).first()
                     c_obj = session.query(Contact).filter(Contact.id == item["contact_id"]).first() if item.get("contact_id") else None
