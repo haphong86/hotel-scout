@@ -403,7 +403,10 @@ CURRENT_VERSION = get_app_version()
 with st.sidebar:
     # Brand logo & header
     if os.path.exists("static/logo.jpg"):
-        st.image("static/logo.jpg", use_container_width=True)
+        try:
+            st.image("static/logo.jpg", use_column_width=True)
+        except Exception:
+            st.image("static/logo.jpg")
     else:
         st.markdown("""
         <div style="text-align:center; padding:16px 0 8px;">
