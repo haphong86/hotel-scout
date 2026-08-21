@@ -1,6 +1,6 @@
 {
-  "version": "v3.2.0",
-  "build_time": "21/08/2026 08:50",
-  "commit": "e8391fa",
-  "release_notes": "Continuous 24/7 Background Scouting Daemon & Realtime Heartbeat Activity Stream"
+  "version": "v3.3.0",
+  "build_time": "21/08/2026 08:58",
+  "commit": "6e9b4d1",
+  "release_notes": "Intelligent Prioritized Outreach Queue (#1 to #20) & Pre-Opening Top Priority Engine"
 }

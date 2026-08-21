@@ -167,140 +167,89 @@ def run_daily_autopilot_job():
         "almanity", "allegro", "belhamy", "nam an", "tia wellness", "la siesta", "premier village"
     }
 
-    seen_emails = set()
+    # 3. Gửi 20 email từ Priority Queue (Bậc 1 Pre-Opening ➔ Bậc 2 Hot Leads ➔ Bậc 3 Tiềm năng)
+    from campaign.priority_queue import get_prioritized_outreach_queue
+    from database.models import PreOpeningProject
+    
+    prioritized_list = get_prioritized_outreach_queue(limit=20, selected_cities=target_cities)
     sent_count = 0
 
-    GENERIC_DISALLOWED = {
-        "info", "reservation", "reservations", "booking", "bookings",
-        "contact", "reception", "letan", "stay", "hello", "frontdesk",
-        "enquiry", "enquiries", "admin", "office", "fnb", "spa", "restaurant"
-    }
-    CHAIN_GLOBAL_DOMAINS = {"hilton.com", "marriott.com", "hyatt.com", "ihg.com", "accor.com"}
+    with open("campaign/templates/email_01_intro.html", "r", encoding="utf-8") as f:
+        tpl_vi = f.read()
+    with open("campaign/templates/email_en_01_intro.html", "r", encoding="utf-8") as f:
+        tpl_en = f.read()
+    with open("campaign/templates/email_pre_opening.html", "r", encoding="utf-8") as f:
+        tpl_pre = f.read()
 
-    all_hotels = (
-        session.query(Hotel)
-        .filter(Hotel.contacts.any())
-        .filter(Hotel.status != "Đã reply")
-        .order_by(Hotel.rating.desc(), Hotel.review_count.desc())
-        .all()
-    )
+    tracking_domain = os.getenv("RAILWAY_PUBLIC_DOMAIN", "hotel-scout-production.up.railway.app")
+    tracking_url = f"https://{tracking_domain}" if not tracking_domain.startswith("http") else tracking_domain
 
-    seen_emails = set()
-    sent_count = 0
-    now = datetime.now()
+    for item in prioritized_list:
+        p_type = item.get("type", "hotel")
+        h_name = item["hotel_name"]
+        h_city = item["city"]
+        to_mail = item["recipient_email"]
+        rec_name = item["recipient_name"]
+        rec_role = item["recipient_role"]
 
-    for h in all_hotels:
-        if sent_count >= 20:
-            break
-
-        past_logs = (
-            session.query(EmailLog)
-            .filter(EmailLog.hotel_id == h.id)
-            .order_by(EmailLog.sent_at.desc())
-            .all()
-        )
-
-        contacts = (
-            session.query(Contact)
-            .filter(Contact.hotel_id == h.id)
-            .filter(Contact.email.isnot(None), Contact.email != "")
-            .order_by(Contact.confidence.desc())
-            .all()
-        )
-
-        target_contact = None
-
-        if not past_logs:
-            target_contact = next((c for c in contacts if (c.confidence or 0) >= 95), None)
-            if not target_contact and contacts:
-                target_contact = contacts[0]
+        if p_type == "pre_opening":
+            subj = f"[{h_name}] — Giải pháp Visual & Bộ ảnh Kiến trúc Launching khai trương tại {h_city}"
+            body = Template(tpl_pre).render(
+                hotel_name=h_name, contact_name=rec_name or rec_role or "Ban Lãnh Đạo",
+                city=h_city, to_email=to_mail, subject=subj
+            )
+            res = send_email(to_mail, rec_name or "", subj, body)
+            if res.get("success"):
+                sent_count += 1
+                session_p = get_session()
+                db_proj = session_p.query(PreOpeningProject).get(item.get("project_id"))
+                if db_proj:
+                    db_proj.status = "Đã gửi Email Launching"
+                    session_p.commit()
+                session_p.close()
+            time.sleep(2.0)
         else:
-            last_log = past_logs[0]
-            hours_since_last = (now - last_log.sent_at).total_seconds() / 3600.0 if last_log.sent_at else 999
-            if hours_since_last < 20.0:
-                continue
+            c_dom = to_mail.split("@")[-1].lower().strip()
+            is_intl = any(k in h_name.lower() for k in intl_keywords) or (c_dom.endswith(".com") and not c_dom.endswith(".vn"))
 
-            sent_contact_ids = {pl.contact_id for pl in past_logs}
-            for c in contacts:
-                if c.id not in sent_contact_ids:
-                    target_contact = c
-                    break
+            if is_intl:
+                subj = f"[{h_name}] — Elevating Architectural & Visual Identity in {h_city}"
+                body_raw = Template(tpl_en).render(
+                    hotel_name=h_name, contact_name=rec_name or "General Manager",
+                    city=h_city, to_email=to_mail, subject=subj
+                )
+            else:
+                subj = f"[{h_name}] — Giải pháp nâng cấp hình ảnh kiến trúc & visual khách sạn"
+                body_raw = Template(tpl_vi).render(
+                    hotel_name=h_name, contact_name=rec_name or "Anh/Chị",
+                    city=h_city, to_email=to_mail, subject=subj
+                )
 
-        if not target_contact:
-            continue
+            session_l = get_session()
+            elog = EmailLog(
+                hotel_id=item.get("hotel_id"), contact_id=item.get("contact_id"), sequence_num=1,
+                subject=subj, status="Đang gửi", sent_at=datetime.now()
+            )
+            session_l.add(elog)
+            session_l.flush()
 
-        c = target_contact
-        c_email = c.email.lower().strip()
-        if c_email in seen_emails:
-            continue
+            pixel_tag = f'<img src="{tracking_url}/?track=open&id={elog.id}" width="1" height="1" style="display:none;" />'
+            body_final = body_raw.replace("</body>", f"{pixel_tag}</body>") if "</body>" in body_raw else body_raw + pixel_tag
 
-        prefix = c_email.split("@")[0].lower()
-        if prefix in GENERIC_DISALLOWED:
-            continue
-
-        c_dom = c_email.split("@")[-1].strip()
-        if is_blacklisted_domain(c_dom) or (c_dom in CHAIN_GLOBAL_DOMAINS and len(prefix) <= 3):
-            continue
-
-        # Kiểm tra máy chủ mail trước khi gửi
-        mx = check_mx(c_dom)
-        if not mx:
-            continue
-
-        seen_emails.add(c_email)
-
-        h = c.hotel
-        h_city = h.city or "Việt Nam"
-        h_name_lower = h.name.lower()
-
-        # Tạo EmailLog trước để lấy ID phục vụ tracking
-        is_intl = any(k in h_name_lower for k in intl_keywords) or (c_dom.endswith(".com") and not c_dom.endswith(".vn") and h.stars and h.stars >= 4)
-
-        if is_intl:
-            subj = f"[{h.name}] — Elevating Architectural & Visual Identity in {h_city}"
-            tpl_chosen = tpl_en
-            contact_display = c.name or "General Manager / Marketing Director"
-        else:
-            subj = f"[{h.name}] — Giải pháp nâng cấp hình ảnh kiến trúc & visual khách sạn"
-            tpl_chosen = tpl_vi
-            contact_display = c.name or c.title or "Anh/Chị"
-
-        # Tạo log entry
-        elog = EmailLog(
-            hotel_id=h.id, contact_id=c.id, sequence_num=1,
-            subject=subj, status="Đang gửi", sent_at=datetime.now()
-        )
-        session.add(elog)
-        session.flush()  # Lấy elog.id
-
-        # Chèn Tracking Pixel & Tracking Link
-        tracking_domain = os.getenv("RAILWAY_PUBLIC_DOMAIN", "hotel-scout-production.up.railway.app")
-        tracking_url = f"https://{tracking_domain}" if not tracking_domain.startswith("http") else tracking_domain
-
-        body = Template(tpl_chosen).render(
-            hotel_name=h.name,
-            contact_name=contact_display,
-            city=h_city,
-            to_email=c.email,
-            subject=subj,
-        )
-
-        # Chèn pixel ảnh 1x1 ẩn ở cuối email
-        pixel_tag = f'<img src="{tracking_url}/track/open?id={elog.id}" width="1" height="1" style="display:none;" />'
-        body_with_tracking = body.replace("</body>", f"{pixel_tag}</body>")
-
-        res = send_email(c.email, c.name or "", subj, body_with_tracking)
-        if res.get("success"):
-            sent_count += 1
-            elog.status = "Đã gửi"
-            h.status = "Đã liên hệ"
-            session.commit()
-        else:
-            elog.status = "Thất bại"
-            elog.error_msg = res.get("message", "")
-            session.commit()
-
-        time.sleep(2.0)
+            res = send_email(to_mail, rec_name or "", subj, body_final)
+            if res.get("success"):
+                sent_count += 1
+                elog.status = "Đã gửi"
+                db_h = session_l.query(Hotel).get(item.get("hotel_id"))
+                if db_h:
+                    db_h.status = "Đã liên hệ"
+                session_l.commit()
+            else:
+                elog.status = "Thất bại"
+                elog.error_msg = res.get("message", "")
+                session_l.commit()
+            session_l.close()
+            time.sleep(2.0)
 
     session.close()
 
