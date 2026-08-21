@@ -54,17 +54,33 @@ def html_to_plain(html: str) -> str:
     return soup.get_text(separator="\n", strip=True)
 
 
-import socket
+def get_smtp_session(timeout: int = 15):
+    """
+    Kết nối SMTP thông minh:
+    1. Thử Port 465 (SSL trực tiếp — siêu nhanh, tránh treo timeout trên cloud)
+    2. Fallback sang Port 587 (STARTTLS)
+    """
+    context = ssl.create_default_context(cafile=certifi.where())
+    smtp_server = EMAIL_CONFIG.get("smtp_server", "smtp.gmail.com")
+    user = EMAIL_CONFIG.get("smtp_user")
+    pwd = EMAIL_CONFIG.get("smtp_password")
 
-def resolve_smtp_ipv4(host: str) -> str:
-    """Ép buộc phân giải IP IPv4 để tránh lỗi Network is unreachable (IPv6) trên Railway/Docker"""
+    # Ưu tiên Port 465 (SSL)
     try:
-        ais = socket.getaddrinfo(host, 587, socket.AF_INET, socket.SOCK_STREAM)
-        if ais:
-            return ais[0][4][0]
+        server = smtplib.SMTP_SSL(smtp_server, 465, context=context, timeout=timeout)
+        server.ehlo("haphong.com")
+        server.login(user, pwd)
+        return server
     except Exception:
         pass
-    return host
+
+    # Fallback Port 587
+    server = smtplib.SMTP(smtp_server, 587, timeout=timeout)
+    server.ehlo("haphong.com")
+    server.starttls(context=context)
+    server.ehlo("haphong.com")
+    server.login(user, pwd)
+    return server
 
 
 def send_email(
@@ -74,24 +90,18 @@ def send_email(
     html_body: str,
 ) -> Dict:
     """
-    Gửi 1 email qua Gmail SMTP (IPv4 forced).
+    Gửi 1 email qua Gmail SMTP.
     Trả về: {"success": True/False, "error": "..."}
     """
     try:
         msg = build_email(to_email, to_name, subject, html_body)
-        smtp_target = resolve_smtp_ipv4(EMAIL_CONFIG["smtp_server"])
-
-        context = ssl.create_default_context(cafile=certifi.where())
-        with smtplib.SMTP(smtp_target, EMAIL_CONFIG["smtp_port"], timeout=25) as server:
-            server.ehlo("haphong.com")
-            server.starttls(context=context)
-            server.ehlo("haphong.com")
-            server.login(EMAIL_CONFIG["smtp_user"], EMAIL_CONFIG["smtp_password"])
-            server.sendmail(
-                EMAIL_CONFIG["sender_email"],
-                to_email,
-                msg.as_string()
-            )
+        server = get_smtp_session(timeout=15)
+        server.sendmail(
+            EMAIL_CONFIG["sender_email"],
+            to_email,
+            msg.as_string()
+        )
+        server.quit()
 
         print(f"  ✅ Đã gửi → {to_email}")
         return {"success": True, "error": None}
@@ -131,13 +141,8 @@ def send_with_delay(
 def test_smtp_connection() -> Dict:
     """Test kết nối SMTP, trả về kết quả"""
     try:
-        smtp_target = resolve_smtp_ipv4(EMAIL_CONFIG["smtp_server"])
-        context = ssl.create_default_context(cafile=certifi.where())
-        with smtplib.SMTP(smtp_target, EMAIL_CONFIG["smtp_port"], timeout=20) as server:
-            server.ehlo("haphong.com")
-            server.starttls(context=context)
-            server.ehlo("haphong.com")
-            server.login(EMAIL_CONFIG["smtp_user"], EMAIL_CONFIG["smtp_password"])
+        server = get_smtp_session(timeout=10)
+        server.quit()
         return {"success": True, "message": "✅ Kết nối SMTP thành công!"}
     except smtplib.SMTPAuthenticationError:
         return {"success": False, "message": "❌ Lỗi xác thực — kiểm tra App Password"}

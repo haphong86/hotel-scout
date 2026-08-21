@@ -1,6 +1,6 @@
 {
-  "version": "v3.1.1",
-  "build_time": "21/08/2026 08:26",
-  "commit": "fa4b890",
-  "release_notes": "Fixed [Errno 101] Network unreachable via IPv4 SMTP forced resolution & Cleaned UI"
+  "version": "v3.1.2",
+  "build_time": "21/08/2026 08:30",
+  "commit": "0d20d74",
+  "release_notes": "Fix SMTP timeout by switching to SSL Port 465 direct connection with 587 Fallback"
 }
