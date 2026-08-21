@@ -161,7 +161,9 @@ PLATFORM_BLACKLIST_DOMAINS = {
     "youtube.com", "zalo.me", "wixsite.com", "wordpress.com", "blogspot.com",
     "apple.com", "microsoft.com", "sentry.io", "github.com", "cloudflare.com",
     "twitter.com", "x.com", "linkedin.com", "pinterest.com",
-    "mail.google.com", "googlemail.com", "gmail.com", "yahoo.com", "hotmail.com", "outlook.com"
+    "api-next.com", "wb.com", "dot.com.vn", "midtowncomics.com", "dcentertainment.com",
+    "w3.org", "wordpress.org", "schema.org", "themeforest.net", "envato.com",
+    "dream-theme.com", "example.com", "domain.com", "email.com", "test.com", "flow.com.vn"
 }
 
 
