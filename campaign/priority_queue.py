@@ -60,8 +60,9 @@ def get_prioritized_outreach_queue(limit: int = 20, offset: int = 0, selected_ci
     pre_projects = q_pre.all()
     pre_projects.sort(key=lambda p: 0 if "RẤT NÓNG" in (p.priority or "") else 1)
 
+    total_needed = offset + limit
     for p in pre_projects:
-        if len(queue) >= limit:
+        if len(queue) >= total_needed:
             break
         c_email = (p.contact_email or "").strip().lower()
         if not is_strictly_valid_email(c_email) or c_email in seen_emails or is_blacklisted_domain(c_email.split("@")[-1]):
@@ -93,7 +94,7 @@ def get_prioritized_outreach_queue(limit: int = 20, offset: int = 0, selected_ci
     # ══════════════════════════════════════════════════════════
     # NHÓM 2: KHÁCH SẠN MỚI & CHƯA TỪNG GỬI EMAIL (WATERFALL CADENCE)
     # ══════════════════════════════════════════════════════════
-    if len(queue) < limit:
+    if len(queue) < total_needed:
         # Lấy các khách sạn CHƯA TỪNG LIÊN HỆ
         q_hotels = session.query(Hotel).filter(
             Hotel.status.notin_(["Đã liên hệ", "Đã reply", "Không quan tâm"]),
@@ -117,7 +118,7 @@ def get_prioritized_outreach_queue(limit: int = 20, offset: int = 0, selected_ci
         scored_hotels.sort(key=lambda x: x[1]["score"], reverse=True)
 
         for h, score_data in scored_hotels:
-            if len(queue) >= limit:
+            if len(queue) >= total_needed:
                 break
 
             # CHỈ LẤY CÁC CONTACT ĐÃ ĐƯỢC XÁC THỰC SỐNG 100% (VALID)
