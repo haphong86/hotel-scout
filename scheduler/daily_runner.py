@@ -14,6 +14,20 @@ import threading
 from datetime import datetime
 from jinja2 import Template
 
+import socket
+
+# Ép buộc Socket phân giải IPv4 trên Railway/Linux Container để triệt tiêu lỗi [Errno 101] Network is unreachable
+_orig_getaddrinfo = socket.getaddrinfo
+def _ipv4_only_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
+    if family == 0 or family == socket.AF_UNSPEC:
+        family = socket.AF_INET
+    try:
+        return _orig_getaddrinfo(host, port, family, type, proto, flags)
+    except Exception:
+        return _orig_getaddrinfo(host, port, 0, type, proto, flags)
+
+socket.getaddrinfo = _ipv4_only_getaddrinfo
+
 # Thêm path gốc
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 

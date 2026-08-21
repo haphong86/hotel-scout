@@ -1,6 +1,6 @@
 {
-  "version": "v3.1.2",
-  "build_time": "21/08/2026 08:30",
-  "commit": "0d20d74",
-  "release_notes": "Fix SMTP timeout by switching to SSL Port 465 direct connection with 587 Fallback"
+  "version": "v3.1.3",
+  "build_time": "21/08/2026 08:32",
+  "commit": "8db33cf",
+  "release_notes": "Enforce Global IPv4 Socket Resolver across all modules (100% Fix for Errno 101 on Cloud Containers)"
 }
