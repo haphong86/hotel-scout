@@ -99,27 +99,50 @@ def get_smtp_session(timeout: int = 15):
 
 def send_email(
     to_email: str,
-    to_name: str,
-    subject: str,
-    html_body: str,
+    arg2: str = "",
+    arg3: str = "",
+    arg4: str = "",
+    to_name: str = "",
+    subject: str = "",
+    html_body: str = "",
+    is_html: bool = True,
+    **kwargs
 ) -> Dict:
     """
-    Gửi 1 email qua Gmail SMTP.
-    Trả về: {"success": True/False, "error": "..."}
+    Gửi 1 email qua Gmail SMTP an toàn tuyệt đối với mọi cấu trúc tham số.
+    Hỗ trợ:
+      1. send_email(to_email, subject, html_body)
+      2. send_email(to_email, to_name, subject, html_body)
     """
+    # Xử lý tham số linh hoạt
+    if arg4:
+        # Trường hợp 4 tham số: to_email, to_name, subject, html_body
+        final_to_name = arg2
+        final_subject = arg3
+        final_body = arg4
+    elif arg3:
+        # Trường hợp 3 tham số: to_email, subject, html_body
+        final_to_name = to_name or "Quý Đối Tác"
+        final_subject = arg2
+        final_body = arg3
+    else:
+        final_to_name = to_name or "Quý Đối Tác"
+        final_subject = subject or arg2
+        final_body = html_body or ""
+
     try:
-        msg = build_email(to_email, to_name, subject, html_body)
-        server = get_smtp_session(timeout=15)
-        server.sendmail(
-            EMAIL_CONFIG["sender_email"],
-            to_email,
-            msg.as_string()
+        msg = build_email(
+            to_email=to_email,
+            to_name=final_to_name,
+            subject=final_subject,
+            html_body=final_body
         )
+        server = get_smtp_session(timeout=15)
+        # Sử dụng email xác thực chính thức để gửi
+        sender_addr = EMAIL_CONFIG.get("smtp_user") or "sales@haphong.com"
+        server.send_message(msg, from_addr=sender_addr, to_addrs=[to_email])
         server.quit()
-
-        print(f"  ✅ Đã gửi → {to_email}")
-        return {"success": True, "error": None}
-
+        return {"success": True}
     except smtplib.SMTPAuthenticationError:
         return {"success": False, "error": "Auth failed — kiểm tra App Password"}
     except smtplib.SMTPRecipientsRefused:

@@ -46,81 +46,122 @@ _scheduler_thread = None
 
 
 def run_daily_autopilot_job():
-    """Hàm chạy toàn bộ quy trình 4 bước mỗi 09:00 AM"""
+    """Hàm chạy toàn bộ quy trình: GỬI EMAIL TRƯỚC (Ưu tiên hàng đầu) ➔ Quét Data sau"""
     start_time = time.time()
     today_str = datetime.now().strftime("%d/%m/%Y %H:%M")
-    print(f"🚀 [CRON 09:00 AM] Bắt đầu chu trình tự động ngày {today_str}...")
+    print(f"🚀 [CRON] Bắt đầu chu trình tự động ngày {today_str}...")
 
     # Thông báo khởi động qua Telegram
-    send_telegram_message(f"☀️ *[09:00 AM] HÀ PHONG VISUALS · AUTOPILOT KHỞI ĐỘNG*\n━━━━━━━━━━━━━━━━━━━━━\nĐang quét khách sạn & gửi chiến dịch hôm nay...")
+    send_telegram_message(f"☀️ *HÀ PHONG VISUALS · AUTOPILOT KHỞI ĐỘNG*\n━━━━━━━━━━━━━━━━━━━━━\nĐang gửi 20 email chiến dịch hôm nay...")
 
-    # 1. Quét các thành phố trọng điểm
     target_cities = [
         "Đà Nẵng", "Hội An", "Quảng Nam", "Huế", "Lăng Cô",
         "Quy Nhơn", "Tuy Hòa", "Nha Trang", "Cam Ranh",
         "Phan Thiết", "Đà Lạt", "Phú Quốc"
     ]
-    # 0. Quét Tình Báo Pre-Opening Radar (Khách sạn sắp khai trương trước 3-6 tháng)
+    session = get_session()
+
+    # =========================================================================
+    # BƯỚC 1: GỬI 20 EMAIL TỪ PRIORITY QUEUE NGAY LẬP TỨC (Không để khách chờ)
+    # =========================================================================
+    from campaign.priority_queue import get_prioritized_outreach_queue
+    from database.models import PreOpeningProject, safe_commit, get_now_vn
+
+    prioritized_list = get_prioritized_outreach_queue(limit=20, selected_cities=target_cities)
+    sent_count = 0
+
+    with open("campaign/templates/email_01_intro.html", "r", encoding="utf-8") as f:
+        tpl_vi = f.read()
+    with open("campaign/templates/email_en_01_intro.html", "r", encoding="utf-8") as f:
+        tpl_en = f.read()
+    with open("campaign/templates/email_pre_opening.html", "r", encoding="utf-8") as f:
+        tpl_pre = f.read()
+
+    tracking_domain = os.getenv("RAILWAY_PUBLIC_DOMAIN", "hotel-scout-production.up.railway.app")
+    tracking_url = f"https://{tracking_domain}" if not tracking_domain.startswith("http") else tracking_domain
+
+    for item in prioritized_list:
+        p_type = item.get("type", "hotel")
+        h_name = item["hotel_name"]
+        h_city = item["city"]
+        to_mail = item["recipient_email"]
+        rec_name = item["recipient_name"]
+        rec_role = item["recipient_role"]
+
+        if p_type == "pre_opening":
+            subj = f"[{h_name}] — Giải pháp Visual & Bộ ảnh Kiến trúc Launching khai trương tại {h_city}"
+            body = Template(tpl_pre).render(
+                hotel_name=h_name, contact_name=rec_name or rec_role or "Ban Lãnh Đạo",
+                city=h_city, est_opening=item.get("est_opening", "sắp tới"),
+                tracking_url=tracking_url, contact_id=item.get("id") or 999
+            )
+        elif item.get("is_international"):
+            subj = f"[{h_name}] — Elevating Architectural & Visual Identity in {h_city}"
+            body = Template(tpl_en).render(
+                hotel_name=h_name, contact_name=rec_name or rec_role or "General Manager",
+                city=h_city, tracking_url=tracking_url, contact_id=item.get("id") or 999
+            )
+        else:
+            subj = f"[{h_name}] — Giải pháp nâng cấp hình ảnh kiến trúc & visual khách sạn"
+            body = Template(tpl_vi).render(
+                hotel_name=h_name, contact_name=rec_name or rec_role or "Tổng Giám Đốc",
+                city=h_city, tracking_url=tracking_url, contact_id=item.get("id") or 999
+            )
+
+        # Gửi email an toàn
+        try:
+            res = send_email(to_mail, subj, body, is_html=True)
+            if res.get("success"):
+                sent_count += 1
+                now_vn = get_now_vn()
+                
+                # Cập nhật PreOpeningProject hoặc Hotel Lead
+                if p_type == "pre_opening":
+                    proj = session.query(PreOpeningProject).filter(PreOpeningProject.id == item["id"]).first()
+                    if proj:
+                        proj.status = "Đã gửi Email Launching"
+                        safe_commit(session)
+                else:
+                    h_obj = session.query(Hotel).filter(Hotel.id == item["hotel_id"]).first()
+                    c_obj = session.query(Contact).filter(Contact.id == item["contact_id"]).first() if item.get("contact_id") else None
+                    if h_obj:
+                        h_obj.status = "Đã liên hệ"
+                    log_entry = EmailLog(
+                        hotel_id=item["hotel_id"],
+                        contact_id=item.get("contact_id"),
+                        subject=subj,
+                        body_preview=body[:200],
+                        status="Đã gửi",
+                        sent_at=now_vn
+                    )
+                    session.add(log_entry)
+                    safe_commit(session)
+
+                print(f"  [{sent_count}/20] ✅ ĐÃ GỬI: {h_name} -> {to_mail}")
+            else:
+                print(f"  ⚠️ Gửi thất bại: {h_name} -> {res.get('error')}")
+        except Exception as ex:
+            print(f"  ⚠️ Lỗi ngoại lệ khi gửi {h_name}: {ex}")
+
+        time.sleep(2.0)
+
+    print(f"✅ Đã gửi thành công {sent_count}/20 email hôm nay!")
+    session.close()
+
+    # =========================================================================
+    # BƯỚC 2: QUÉT PRE-OPENING RADAR & DATA MỚI TRONG NỀN
+    # =========================================================================
     try:
         from radar.pre_opening_radar import run_pre_opening_radar
-        radar_res = run_pre_opening_radar(target_cities, notify_telegram=True)
-        print(f"  🔭 Pre-Opening Radar: {radar_res['total_radar_projects']} dự án đang theo dõi ({radar_res['hot_projects_count']} dự án RẤT NÓNG).")
+        radar_res = run_pre_opening_radar(target_cities, notify_telegram=False)
+        print(f"  🔭 Pre-Opening Radar: {radar_res['total_radar_projects']} dự án đang theo dõi.")
     except Exception as e:
         print(f"  ⚠️ Pre-Opening Radar lỗi: {e}")
 
-    session = get_session()
-    total_found = 0
-    saved_hotels = 0
-    skipped_hotels = 0
-    from scanner.overpass_scanner import scan_city_osm
-    from scanner.google_maps_scraper import search_google_maps
-    from scanner.early_signals import scrape_booking_opening_soon, scrape_hotel_job_postings
-
-    for city in target_cities:
-        try:
-            print(f"  • Quét đa kênh tại {city}...")
-            osm = scan_city_osm(city, radius_km=15)
-            gmaps = search_google_maps(f"khách sạn mới {city}", city)
-            b_soon = scrape_booking_opening_soon(city)
-            jobs = scrape_hotel_job_postings(city)
-
-            all_found = osm + gmaps + b_soon + jobs
-            total_found += len(all_found)
-
-            for h in all_found:
-                name = (h.get("name") or "").strip()
-                if not name or len(name) < 3:
-                    continue
-                exists = session.query(Hotel).filter(Hotel.name == name, Hotel.city == city).first()
-                if not exists:
-                    session.add(Hotel(
-                        name=name, city=city,
-                        address=h.get("address"), website=h.get("website") or h.get("source_url"),
-                        phone_main=h.get("phone_main"), rating=h.get("rating"),
-                        review_count=h.get("review_count", 0),
-                        source=h.get("source", "multi_source"),
-                        status="Đang xây / Sắp mở" if h.get("signal") else "Mới tìm thấy"
-                    ))
-                    saved_hotels += 1
-                else:
-                    skipped_hotels += 1
-        except Exception as e:
-            print(f"  ⚠️ Quét {city} lỗi: {e}")
-
-    session.commit()
-
-    # Ghi nhận ScanLog
-    duration = int(time.time() - start_time)
-    session.add(ScanLog(
-        cities=", ".join(target_cities[:5]) + f" (+{len(target_cities)-5})",
-        source="openstreetmap",
-        total_found=total_found,
-        new_saved=saved_hotels,
-        skipped=skipped_hotels,
-        duration_s=duration,
-        triggered_by="cron_09am"
-    ))
-    session.commit()
+    # Báo cáo Telegram
+    report_msg = generate_daily_report()
+    send_telegram_message(report_msg)
+    return sent_count
 
     # 2. Tìm & Verify Email cho các khách sạn chưa có liên hệ
     hotels_to_find = (
