@@ -173,34 +173,37 @@ def pattern_score(email: str) -> int:
 # MAIN: Xác minh 1 email (3 lớp)
 # ═══════════════════════════════════════════════════════════════
 
-def check_smtp_mailbox_exists(email: str, mx_host: str) -> Optional[bool]:
+def check_smtp_mailbox_exists(email: str, mx_host: str, timeout: float = 6.0) -> Optional[bool]:
     """
-    Thực hiện SMTP Handshake kiểm tra hòm thư có thực sự tồn tại trên máy chủ không.
+    KIỂM TRA TRỰC TIẾP HÒM THƯ CÓ THỰC SỰ TỒN TẠI TRÊN MAIL SERVER KHÔNG:
+    Kết nối SMTP và gửi lệnh RCPT TO: <email> (KHÔNG gửi thư thật)
     Trả về:
-      True: Server trả về 250 (Hòm thư tồn tại thật 100%)
-      False: Server trả về 550 / 551 / 553 / User not found (Hòm thư không tồn tại -> LOẠI BỎ)
-      None: Server từ chối probe hoặc timeout -> Giữ lại theo DNS
+      True:  Server trả về 250 (Hòm thư tồn tại thật 100% — GỬI AN TOÀN)
+      False: Server trả về 550 / 551 / 553 / User Inactive (Hòm thư KHÔNG TỒN TẠI -> LOẠI BỎ NGAY LẬP TỨC)
+      None:  Server từ chối probe hoặc timeout -> Đánh giá theo nguồn gốc cào web
     """
-    if not email or not mx_host:
+    if not email or not mx_host or "@" not in email:
         return None
     try:
         import smtplib
-        server = smtplib.SMTP(timeout=3.0)
+        server = smtplib.SMTP(timeout=timeout)
         server.connect(mx_host, 25)
-        server.helo("haphong.com")
-        server.mail("probe@haphong.com")
+        server.ehlo_or_helo_if_needed()
+        server.mail("verify@haphong.com")
         code, msg = server.rcpt(email)
         try:
             server.quit()
         except Exception:
             pass
+
         if code == 250:
             return True
-        elif code >= 500:
+        elif code in [550, 551, 552, 553, 554]:
             return False
+        else:
+            return None
     except Exception:
         return None
-    return None
 
 
 # ═══════════════════════════════════════════════════════════════

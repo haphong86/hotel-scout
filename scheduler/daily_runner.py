@@ -108,7 +108,19 @@ def run_daily_autopilot_job():
                 city=h_city, tracking_url=tracking_url, contact_id=item.get("id") or item.get("contact_id") or 999
             )
 
-        # Gửi email an toàn
+        # =====================================================================
+        # CỔNG KIỂM TRA HÒM THƯ TRỰC TIẾP (ZERO-BOUNCE MAILBOX PING GATE)
+        # =====================================================================
+        from extractor.email_verifier import check_mx, check_smtp_mailbox_exists
+        dom = to_mail.split("@")[-1]
+        mx_server = check_mx(dom)
+        if mx_server:
+            is_alive = check_smtp_mailbox_exists(to_mail, mx_server)
+            if is_alive is False:
+                print(f"  🚫 BỎ QUA [HÒM THƯ KHÔNG TỒN TẠI]: {h_name} -> {to_mail} (Mail Server báo 550 User Inactive/Not Found)")
+                continue
+
+        # Gửi email an toàn khi hòm thư đã xác thực tồn tại
         try:
             res = send_email(to_mail, subj, body, is_html=True)
             if res.get("success"):
