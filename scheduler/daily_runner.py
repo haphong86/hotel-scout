@@ -333,28 +333,54 @@ def run_continuous_scout_cycle():
     log_activity("💤 Chế độ giám sát 24/7", "Đang chờ chu kỳ quét tiếp theo (mỗi 60 phút)...")
 
 
+from datetime import datetime, timezone, timedelta
+import json
+
+LAST_RUN_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs", "last_run.json")
+
+
+def _get_last_run_date() -> str:
+    if os.path.exists(LAST_RUN_FILE):
+        try:
+            with open(LAST_RUN_FILE, "r", encoding="utf-8") as f:
+                return json.load(f).get("last_run_date", "")
+        except Exception:
+            pass
+    return ""
+
+
+def _set_last_run_date(date_str: str):
+    os.makedirs(os.path.dirname(LAST_RUN_FILE), exist_ok=True)
+    try:
+        with open(LAST_RUN_FILE, "w", encoding="utf-8") as f:
+            json.dump({"last_run_date": date_str, "updated_at": datetime.now(timezone(timedelta(hours=7))).strftime("%d/%m/%Y %H:%M:%S")}, f)
+    except Exception:
+        pass
+
+
 def _cron_loop():
-    """Vòng lặp chạy ngầm 24/7 liên tục trên Railway"""
-    last_run_date = ""
+    """Vòng lặp chạy ngầm 24/7 liên tục trên Railway (Chuẩn Giờ Việt Nam UTC+7)"""
     last_scout_time = 0
-    print("⏰ [SCHEDULER] Bộ đếm giờ tự động 24/7 đã kích hoạt!")
-    log_activity("🚀 KHỞI ĐỘNG HỆ THỐNG", "Bộ máy quét ngầm 24/7 & Lịch tự động 09:00 AM đã sẵn sàng")
+    vn_tz = timezone(timedelta(hours=7))
+    print("⏰ [SCHEDULER] Bộ đếm giờ tự động 24/7 (Giờ VN UTC+7) đã kích hoạt!")
+    log_activity("🚀 KHỞI ĐỘNG HỆ THỐNG", "Bộ máy quét ngầm 24/7 & Lịch tự động (Giờ VN UTC+7) đã sẵn sàng")
 
     while _scheduler_running:
         try:
-            now = datetime.now()
+            now_vn = datetime.now(vn_tz)
             now_ts = time.time()
-            today_str = now.strftime("%Y-%m-%d")
+            today_str = now_vn.strftime("%Y-%m-%d")
+            last_run_date = _get_last_run_date()
 
             # 1. Chạy chu kỳ quét radar & cào dữ liệu liên tục mỗi 60 phút (3600 giây)
             if now_ts - last_scout_time >= 3600:
                 last_scout_time = now_ts
                 run_continuous_scout_cycle()
 
-            # 2. Kiểm tra nếu đúng 09:00 AM mỗi sáng (Giờ làm việc) -> Gửi chiến dịch Email Bậc Thang
-            if now.hour == 9 and now.minute <= 5 and last_run_date != today_str:
-                last_run_date = today_str
-                log_activity("📤 BẮT ĐẦU CHIẾN DỊCH GỬI MAIL 09:00 AM", "Đang phân bổ gửi email bậc thang...")
+            # 2. Tự động gửi email trong khung giờ làm việc (09:00 - 17:00 Giờ VN) nếu hôm nay chưa gửi
+            if 9 <= now_vn.hour <= 17 and last_run_date != today_str:
+                _set_last_run_date(today_str)
+                log_activity("📤 BẮT ĐẦU CHIẾN DỊCH GỬI MAIL TỰ ĐỘNG", f"Đang gửi 20 email bậc thang (Giờ VN: {now_vn.strftime('%H:%M')})...")
                 run_daily_autopilot_job()
 
         except Exception as e:
