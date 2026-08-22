@@ -516,9 +516,10 @@ c5.metric("OPEN RATE",       stats["open_rate"])
 st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
 
 # ── TABS (GỌN GÀNG, KHÔNG BỊ TRÀN MÀN HÌNH) ───────────────────
-tab_today, tab_backlog, tab3, tab_logs = st.tabs([
+tab_today, tab_backlog, tab_warehouse, tab3, tab_logs = st.tabs([
     "🚀 TOP 20 HÔM NAY",
     "📋 DỰ BỊ (#21+)",
+    "🗃️ KHO EMAIL",
     "✉️ CHIẾN DỊCH",
     "⏱️ GIÁM SÁT 24/7",
 ])
@@ -949,6 +950,137 @@ with tab_backlog:
             })
         df_backlog = pd.DataFrame(b_rows)
         st.dataframe(df_backlog, use_container_width=True, height=500)
+
+
+# ─────────────────────────────────────────────────────────────
+# TAB KHO EMAIL: Toàn bộ email đã và đang tìm được
+# ─────────────────────────────────────────────────────────────
+with tab_warehouse:
+    st.markdown("""
+    <div style="background:linear-gradient(135deg,#121212,#0d0d0d);
+                border:1px solid #E50914;border-radius:4px;padding:22px 26px;margin-bottom:20px;">
+      <div style="font-size:10px;letter-spacing:3px;color:#E50914;text-transform:uppercase;font-weight:600;">
+        KHO DỮ LIỆU EMAIL
+      </div>
+      <div style="font-family:'Montserrat',sans-serif;font-weight:700;font-size:24px;color:#FFF;margin:4px 0 6px;">
+        Toàn Bộ Email Đã Thu Thập
+      </div>
+      <div style="font-size:12px;color:#999;line-height:1.6;">
+        Tất cả email hệ thống đã tìm được — kể cả đã gửi, chưa gửi, VALID và LIKELY.
+        Dùng để kiểm tra chất lượng data và xem app hoạt động hiệu quả.
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Load toàn bộ contacts
+    wh_session = get_session()
+    try:
+        from sqlalchemy.orm import joinedload
+        wh_contacts = (
+            wh_session.query(Contact, Hotel.name.label("hotel_name"), Hotel.city, Hotel.website)
+            .join(Hotel)
+            .order_by(Contact.created_at.desc())
+            .all()
+        )
+        wh_sent_ids = {
+            l.contact_id for l in wh_session.query(EmailLog)
+            .filter(EmailLog.status.in_(["SENT","Đã gửi","OPENED","CLICKED","REPLIED"]))
+            .all()
+        }
+    finally:
+        wh_session.close()
+
+    # ── Thống kê nhanh ───────────────────────────────────────
+    total_wh   = len(wh_contacts)
+    valid_wh   = sum(1 for c,*_ in wh_contacts if c.verify_status == "VALID")
+    likely_wh  = sum(1 for c,*_ in wh_contacts if c.verify_status == "LIKELY")
+    sent_wh    = sum(1 for c,*_ in wh_contacts if c.id in wh_sent_ids)
+    unsent_wh  = total_wh - sent_wh
+
+    mc1, mc2, mc3, mc4, mc5 = st.columns(5)
+    mc1.metric("📧 Tổng Email",   total_wh)
+    mc2.metric("✅ VALID",        valid_wh)
+    mc3.metric("⚠️ LIKELY",       likely_wh)
+    mc4.metric("📤 Đã Gửi",       sent_wh)
+    mc5.metric("📬 Chưa Gửi",     unsent_wh)
+
+    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+
+    # ── Bộ lọc ──────────────────────────────────────────────
+    fc1, fc2, fc3, fc4 = st.columns([3, 2, 2, 2])
+    with fc1:
+        search_kw = st.text_input("🔍 Tìm email hoặc tên KS", placeholder="vd: furama, info@, đà nẵng...", key="wh_search")
+    with fc2:
+        all_cities_wh = sorted(set(city for _,_,city,_ in wh_contacts if city))
+        filter_city_wh = st.multiselect("Thành phố", options=all_cities_wh, key="wh_city")
+    with fc3:
+        filter_status_wh = st.multiselect("Trạng thái", options=["VALID","LIKELY","RISKY","DEAD"], default=["VALID","LIKELY"], key="wh_status")
+    with fc4:
+        filter_sent_wh = st.selectbox("Tình trạng gửi", options=["Tất cả","Chưa gửi","Đã gửi"], key="wh_sent")
+
+    # ── Build dataframe ──────────────────────────────────────
+    rows = []
+    for c, hotel_name, city, website in wh_contacts:
+        email = (c.email or "").lower().strip()
+        # Lọc search
+        if search_kw:
+            kw = search_kw.lower()
+            if kw not in email and kw not in (hotel_name or "").lower() and kw not in (city or "").lower():
+                continue
+        # Lọc city
+        if filter_city_wh and city not in filter_city_wh:
+            continue
+        # Lọc status
+        if filter_status_wh and c.verify_status not in filter_status_wh:
+            continue
+        # Lọc sent
+        is_sent = c.id in wh_sent_ids
+        if filter_sent_wh == "Chưa gửi" and is_sent:
+            continue
+        if filter_sent_wh == "Đã gửi" and not is_sent:
+            continue
+
+        # Source label dễ đọc
+        src_map = {
+            "website_crawled":       "🌐 Website crawl",
+            "website_crawl":         "🌐 Website crawl",
+            "google_maps_crawl":     "🗺️ Google Maps",
+            "smtp_verified_pattern": "🔬 SMTP Pattern",
+            "pipeline":              "⚙️ Pipeline",
+            "verified_decision_maker": "👤 Decision Maker",
+            "booking_crawl":         "🏨 Booking.com",
+        }
+        source_label = src_map.get(c.source or "", f"📌 {c.source or 'unknown'}")
+
+        rows.append({
+            "STT":        len(rows) + 1,
+            "Khách Sạn":  hotel_name or "—",
+            "Thành Phố":  city or "—",
+            "Email":       c.email or "—",
+            "Trạng Thái": f"{'✅' if c.verify_status=='VALID' else '⚠️' if c.verify_status=='LIKELY' else '❌'} {c.verify_status}",
+            "Nguồn":       source_label,
+            "Đã Gửi":     "📤 Rồi" if is_sent else "📬 Chưa",
+            "Ngày Tìm":    c.created_at.strftime("%d/%m %H:%M") if c.created_at else "—",
+            "Website KS":  website or "—",
+        })
+
+    st.markdown(f"**{len(rows)}** email phù hợp bộ lọc")
+
+    if rows:
+        df_wh = pd.DataFrame(rows)
+        st.dataframe(df_wh, use_container_width=True, height=550)
+
+        # Export CSV
+        csv_data = df_wh.to_csv(index=False, encoding="utf-8-sig")
+        st.download_button(
+            label="⬇️ Tải xuống CSV",
+            data=csv_data,
+            file_name=f"kho_email_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+            mime="text/csv",
+            key="wh_download"
+        )
+    else:
+        st.info("Không tìm thấy email phù hợp bộ lọc.")
 
 
 with tab3:
