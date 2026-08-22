@@ -1404,10 +1404,11 @@ with tab_logs:
             if full_log:
                 log_text = "\n".join(full_log)
                 st.text_area(
-                    label="",
+                    label="Lịch sử hoạt động",
                     value=log_text,
                     height=400,
                     key="full_activity_log",
+                    label_visibility="collapsed",
                     help="Toàn bộ lịch sử hoạt động — mới nhất ở đầu"
                 )
                 st.caption(f"📊 Tổng cộng {len(full_log)} dòng log")
