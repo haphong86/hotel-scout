@@ -399,9 +399,9 @@ def get_app_version() -> str:
         import subprocess
         git_hash = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], stderr=subprocess.DEVNULL).decode().strip()
         git_date = subprocess.check_output(["git", "log", "-1", "--format=%cd", "--date=format:%d/%m %H:%M"], stderr=subprocess.DEVNULL).decode().strip()
-        return f"v2.6.2 • #{git_hash} ({git_date})"
+        return f"v3.7.0 • #{git_hash} ({git_date})"
     except Exception:
-        return "v2.6.2 • 21/08/2026 (Live Production)"
+        return "v3.7.0 • 22/08/2026 (Live Production)"
 
 CURRENT_VERSION = get_app_version()
 
