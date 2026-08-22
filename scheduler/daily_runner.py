@@ -255,46 +255,90 @@ def run_continuous_scout_cycle():
     log_activity("🏢 Hoàn tất cào khách sạn", f"Đã lưu thêm +{new_saved} khách sạn mới vào hệ thống")
 
 def run_continuous_scout_cycle():
-    """Chu kỳ quét và verify email LIÊN TỤC qua toàn bộ cơ sở dữ liệu (Không để máy nghỉ)"""
-    log_activity("🔄 QUÉT & VERIFY EMAIL LIÊN TỤC", "Đang rà soát các khách sạn chưa có liên hệ trong Database...")
+    """
+    Chu kỳ 3 phút chạy liên tục 24/7:
+    1. Scan KS mới từ OSM/Google Maps → lưu vào DB
+    2. Crawl website tìm email → verify SMTP → lưu Contact
+    Không để máy nghỉ, tích lũy data liên tục.
+    """
+    log_activity("🔄 CHU KỲ SCAN + EMAIL", "Đang scan KS mới & crawl email...")
     session = get_session()
-    
-    # 1. Lấy danh sách khách sạn CÓ WEBSITE/DOMAIN nhưng chưa có liên hệ hoặc chưa verify
-    unverified_hotels = (
-        session.query(Hotel)
-        .filter(Hotel.website.like("http%"), ~Hotel.contacts.any())
-        .order_by(Hotel.stars.desc(), Hotel.created_at.desc())
-        .limit(20)
-        .all()
-    )
-    
-    if not unverified_hotels:
-        log_activity("✅ ĐÃ QUÉT HẾT DỮ LIỆU", "Tất cả khách sạn trong hệ thống đã được tìm kiếm & verify email!")
+    new_hotels = 0
+    new_emails  = 0
+
+    # ── PHẦN 1: Scan KS mới từ OSM + Google Maps ──────────────
+    target_cities = [
+        "Đà Nẵng", "Hội An", "Quảng Nam", "Huế", "Lăng Cô",
+        "Quy Nhơn", "Tuy Hòa", "Nha Trang", "Cam Ranh",
+        "Phan Thiết", "Đà Lạt", "Phú Quốc"
+    ]
+    try:
+        from scanner.overpass_scanner import scan_city_osm
+        for city in target_cities[:3]:  # 3 thành phố/chu kỳ, xoay vòng
+            try:
+                osm_hotels = scan_city_osm(city, radius_km=15)
+                for h in osm_hotels:
+                    name = (h.get("name") or "").strip()
+                    if not name or len(name) < 3:
+                        continue
+                    exists = session.query(Hotel).filter(
+                        Hotel.name == name, Hotel.city == city
+                    ).first()
+                    if not exists:
+                        session.add(Hotel(
+                            name=name, city=city,
+                            address=h.get("address"),
+                            website=h.get("website") or h.get("source_url"),
+                            phone_main=h.get("phone_main"),
+                            rating=h.get("rating"),
+                            stars=h.get("stars", 3),
+                            source="osm",
+                            status="Mới tìm thấy"
+                        ))
+                        new_hotels += 1
+                session.commit()
+            except Exception:
+                session.rollback()
+    except Exception as e:
+        log_activity("⚠️ Scan OSM lỗi", str(e))
+
+    if new_hotels > 0:
+        log_activity("🏢 KS mới từ OSM", f"+{new_hotels} khách sạn mới")
+
+    # ── PHẦN 2: Crawl email cho KS chưa có contact ─────────────
+    try:
+        unverified = (
+            session.query(Hotel)
+            .filter(Hotel.website.like("http%"), ~Hotel.contacts.any())
+            .order_by(Hotel.stars.desc(), Hotel.created_at.desc())
+            .limit(15)
+            .all()
+        )
         session.close()
-        return
 
-    verified_total = 0
-    processed_count = 0
-
-    for h in unverified_hotels:
-        try:
-            processed_count += 1
-            log_activity("🔍 Đang tìm & verify email", f"[{processed_count}/{len(unverified_hotels)}] {h.name} ({h.city or 'VN'})...")
-            
-            # Sinh ứng viên: Cào web + Mẫu chức danh cấp cao (GM, DOSM, Marcom, v.v.)
-            candidates = generate_candidates(h)
-            if candidates:
-                verified = verify_candidates(candidates, max_verify=6)
-                if verified:
-                    saved = save_verified_contacts(h.id, verified)
-                    verified_total += saved
+        for h in unverified:
+            try:
+                log_activity("🔍 Tìm email", f"{h.name} ({h.city or 'VN'})...")
+                candidates = generate_candidates(h)
+                if candidates:
+                    verified = verify_candidates(candidates, max_verify=6)
+                    saved = save_verified_contacts(h, verified)
                     if saved > 0:
-                        log_activity("✅ ĐÃ XÁC THỰC EMAIL SỐNG", f"Lưu +{saved} email cho {h.name}")
-        except Exception as e:
-            continue
+                        new_emails += saved
+                        log_activity("✅ Email mới", f"+{saved} email cho {h.name}")
+            except Exception:
+                continue
+    except Exception as e:
+        log_activity("⚠️ Crawl email lỗi", str(e))
+        try:
+            session.close()
+        except Exception:
+            pass
 
-    session.close()
-    log_activity("🎉 HOÀN TẤT CHU KỲ VERIFY", f"Đã rà soát {processed_count} khách sạn ➔ Bổ sung +{verified_total} email sống vào hàng đợi")
+    log_activity(
+        "🎉 Chu kỳ hoàn tất",
+        f"KS mới: +{new_hotels} | Email mới: +{new_emails}"
+    )
 
 
 from datetime import datetime, timezone, timedelta
