@@ -431,15 +431,41 @@ def _cron_loop():
     print("⏰ [SCHEDULER] 24/7 khởi động!")
     log_activity("🚀 KHỞI ĐỘNG", "Hệ thống 24/7 sẵn sàng — 9AM gửi email, cả ngày săn data mới")
 
-    # Toàn bộ 12 tỉnh thành trọng điểm — xoay vòng liên tục
+    # ── TOÀN QUỐC — Ưu tiên trung tâm du lịch nhiều KS/resort ──
+    # Tier 1: Đà Nẵng cluster (anh ở đây — quét nhiều nhất)
+    # Tier 2: Các điểm du lịch lớn toàn quốc
+    # Tier 3: Tỉnh thành tiềm năng
     ALL_CITIES = [
+        # ── TIER 1: Đà Nẵng & Miền Trung (ưu tiên cao nhất) ──
         "Đà Nẵng", "Hội An", "Quảng Nam", "Huế", "Lăng Cô",
-        "Quy Nhơn", "Tuy Hòa", "Nha Trang", "Cam Ranh",
-        "Phan Thiết", "Đà Lạt", "Phú Quốc"
+
+        # ── TIER 2: Du lịch lớn toàn quốc ──
+        "Phú Quốc", "Nha Trang", "Cam Ranh",
+        "Đà Lạt", "Phan Thiết", "Mũi Né",
+        "Hà Nội", "Hạ Long", "Sapa",
+        "Hồ Chí Minh", "Vũng Tàu",
+
+        # ── TIER 3: Miền Trung mở rộng ──
+        "Quy Nhơn", "Tuy Hòa", "Quảng Ngãi",
+        "Quảng Bình", "Đồng Hới", "Quảng Trị",
+        "Ninh Thuận", "Phan Rang",
+
+        # ── TIER 4: Tỉnh thành tiềm năng ──
+        "Hội An", "Tam Kỳ",
+        "Buôn Ma Thuột", "Gia Lai", "Pleiku",
+        "Cần Thơ", "Long Xuyên", "Rạch Giá",
+        "Thanh Hóa", "Sầm Sơn",
+        "Nghệ An", "Cửa Lò",
+        "Hà Tĩnh", "Thiên Cầm",
+        "Quảng Ninh", "Cát Bà", "Tuần Châu",
+        "Ninh Bình", "Tràng An",
+        "Mộc Châu", "Hòa Bình",
+        "Bình Định", "Phú Yên",
     ]
-    city_index = 0          # Xoay vòng từng thành phố
+    city_index = 0       # Xoay vòng qua 40 thành phố
     last_scout_time = 0
-    SCOUT_INTERVAL = 180    # Quét mỗi 3 phút
+    SCOUT_INTERVAL = 180  # Mỗi 3 phút quét 3 thành phố → hết 40 thành phố sau ~40 phút
+
 
     while _scheduler_running:
         try:
