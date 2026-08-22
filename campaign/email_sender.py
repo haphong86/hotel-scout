@@ -97,6 +97,40 @@ def get_smtp_session(timeout: int = 15):
     return server
 
 
+def _send_via_resend(to_email: str, to_name: str, subject: str, html_body: str) -> Dict:
+    """Gửi qua Resend API — hoạt động từ mọi IP kể cả Railway datacenter."""
+    import os
+    api_key = os.getenv("RESEND_API_KEY", "")
+    if not api_key:
+        return {"success": False, "error": "Không có RESEND_API_KEY"}
+    sender_email = EMAIL_CONFIG.get("sender_email", "sales@haphong.com")
+    sender_name  = EMAIL_CONFIG.get("sender_name", "Hà Phong Visuals")
+    try:
+        import urllib.request, json as _json
+        payload = _json.dumps({
+            "from": f"{sender_name} <{sender_email}>",
+            "to": [to_email],
+            "subject": subject,
+            "html": html_body,
+        }).encode("utf-8")
+        req = urllib.request.Request(
+            "https://api.resend.com/emails",
+            data=payload,
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = _json.loads(resp.read())
+            if data.get("id"):
+                return {"success": True, "id": data["id"], "method": "resend"}
+            return {"success": False, "error": str(data)}
+    except Exception as e:
+        return {"success": False, "error": f"Resend error: {e}"}
+
+
 def send_email(
     to_email: str,
     arg2: str = "",
@@ -109,27 +143,39 @@ def send_email(
     **kwargs
 ) -> Dict:
     """
-    Gửi 1 email qua Gmail SMTP an toàn tuyệt đối với mọi cấu trúc tham số.
+    Gửi 1 email — ƯU TIÊN Resend API (Railway-safe), fallback sang Gmail SMTP.
     Hỗ trợ:
       1. send_email(to_email, subject, html_body)
       2. send_email(to_email, to_name, subject, html_body)
     """
     # Xử lý tham số linh hoạt
     if arg4:
-        # Trường hợp 4 tham số: to_email, to_name, subject, html_body
         final_to_name = arg2
         final_subject = arg3
-        final_body = arg4
+        final_body    = arg4
     elif arg3:
-        # Trường hợp 3 tham số: to_email, subject, html_body
         final_to_name = to_name or "Quý Đối Tác"
         final_subject = arg2
-        final_body = arg3
+        final_body    = arg3
     else:
         final_to_name = to_name or "Quý Đối Tác"
         final_subject = subject or arg2
-        final_body = html_body or ""
+        final_body    = html_body or ""
 
+    # ── BƯỚC 1: Thử Resend API (không bị block bởi Railway IP) ──
+    import os
+    if os.getenv("RESEND_API_KEY"):
+        res = _send_via_resend(to_email, final_to_name, final_subject, final_body)
+        if res.get("success"):
+            return res
+        # Nếu Resend fail vì domain chưa verify → fallback SMTP
+        err = str(res.get("error", ""))
+        if "domain" in err.lower() or "verify" in err.lower() or "403" in err:
+            pass  # fallthrough to SMTP
+        else:
+            return res  # lỗi khác thì trả về luôn
+
+    # ── BƯỚC 2: Fallback Gmail SMTP (chỉ hoạt động từ IP nhà) ──
     try:
         msg = build_email(
             to_email=to_email,
@@ -138,17 +184,17 @@ def send_email(
             html_body=final_body
         )
         server = get_smtp_session(timeout=15)
-        # Sử dụng email xác thực chính thức để gửi
         sender_addr = EMAIL_CONFIG.get("smtp_user") or "sales@haphong.com"
         server.send_message(msg, from_addr=sender_addr, to_addrs=[to_email])
         server.quit()
-        return {"success": True}
+        return {"success": True, "method": "smtp"}
     except smtplib.SMTPAuthenticationError:
-        return {"success": False, "error": "Auth failed — kiểm tra App Password"}
+        return {"success": False, "error": "Auth failed — Gmail chặn IP Railway, kiểm tra Resend API Key"}
     except smtplib.SMTPRecipientsRefused:
         return {"success": False, "error": "Email không tồn tại"}
     except Exception as e:
         return {"success": False, "error": str(e)}
+
 
 
 def send_with_delay(
