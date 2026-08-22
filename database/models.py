@@ -230,7 +230,8 @@ def init_db():
         print("🗄️  Dùng SQLite (local)")
 
     Base.metadata.create_all(_engine)
-    _SessionFactory = sessionmaker(bind=_engine)
+    # autoflush=False: tránh lỗi "Query-invoked autoflush" khi session có pending changes
+    _SessionFactory = sessionmaker(bind=_engine, autoflush=False)
     return _engine
 
 
