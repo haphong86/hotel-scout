@@ -39,6 +39,7 @@ from campaign.email_sender import send_email
 from extractor.email_verifier import check_mx
 from extractor.free_email_finder import is_blacklisted_domain
 from notifications.telegram_bot import send_telegram_message, generate_daily_report
+from scheduler.heartbeat_tracker import log_activity
 
 
 _scheduler_running = False
