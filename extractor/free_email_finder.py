@@ -68,30 +68,51 @@ PRIORITY_TITLES = [
 # PHƯƠNG PHÁP 1: Crawl website KS tìm email
 # ═══════════════════════════════════════════════════════════════
 
+def _fetch_page(url: str) -> str:
+    """Fetch trang web — thử httpx trước, fallback requests nếu fail"""
+    try:
+        resp = httpx.get(url, headers=HEADERS, timeout=8.0, follow_redirects=True)
+        if resp.status_code == 200:
+            return resp.text
+    except Exception:
+        pass
+    # Fallback: requests (ổn định hơn trên Railway)
+    try:
+        import requests as _req
+        resp = _req.get(url, headers=HEADERS, timeout=8, allow_redirects=True)
+        if resp.status_code == 200:
+            return resp.text
+    except Exception:
+        pass
+    return ""
+
+
 def crawl_website_emails(website: str) -> List[Dict]:
     """Tìm email trực tiếp từ website KS — NHANH nhất"""
     if not website:
         return []
 
     emails = []
-    # Các trang thường có contact
+    base = website.rstrip("/")
+    # Crawl đủ các trang thường có email — bao gồm cả trailing slash
     pages_to_check = [
-        website.rstrip("/"),
-        website.rstrip("/") + "/contact",
-        website.rstrip("/") + "/lien-he",
-        website.rstrip("/") + "/about",
-        website.rstrip("/") + "/gioi-thieu",
-        website.rstrip("/") + "/team",
+        base,
+        base + "/contact",
+        base + "/contact/",       # trailing slash quan trọng!
+        base + "/lien-he",
+        base + "/lien-he/",
+        base + "/about",
+        base + "/about-us",
+        base + "/gioi-thieu",
     ]
 
     found_emails = set()
-    for url in pages_to_check[:3]:  # Kiểm tra tối đa 3 trang chính
+    for url in pages_to_check[:5]:  # Crawl 5 trang
         try:
-            resp = httpx.get(url, headers=HEADERS, timeout=3.5, follow_redirects=True)
-            if resp.status_code != 200:
+            text = _fetch_page(url)
+            if not text:
                 continue
 
-            text = resp.text
             soup = BeautifulSoup(text, "html.parser")
 
             # Tìm email trong text
