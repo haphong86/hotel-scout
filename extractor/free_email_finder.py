@@ -68,23 +68,73 @@ PRIORITY_TITLES = [
 # PHƯƠNG PHÁP 1: Crawl website KS tìm email
 # ═══════════════════════════════════════════════════════════════
 
+def _fetch_with_playwright(url: str) -> str:
+    """Tier 3: Playwright headless Chromium — render JS-only pages"""
+    try:
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as p:
+            browser = p.chromium.launch(
+                headless=True,
+                args=["--no-sandbox", "--disable-setuid-sandbox",
+                      "--disable-dev-shm-usage", "--disable-gpu"]
+            )
+            page = browser.new_page(
+                user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                           "AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36"
+            )
+            page.goto(url, timeout=15000, wait_until="domcontentloaded")
+            page.wait_for_timeout(2000)  # Chờ JS render xong
+            html = page.content()
+            browser.close()
+            return html
+    except Exception:
+        return ""
+
+
+def _is_js_only(html: str) -> bool:
+    """Phát hiện trang JS-only (React/Vue/SPA) — email không có trong HTML thô"""
+    if not html:
+        return True
+    import re as _re
+    # Ít text content + nhiều script = JS-only
+    text_len = len(_re.sub(r'<[^>]+>', '', html))
+    script_count = html.lower().count('<script')
+    return text_len < 500 and script_count > 5
+
+
 def _fetch_page(url: str) -> str:
-    """Fetch trang web — thử httpx trước, fallback requests nếu fail"""
+    """3-tier fetch:
+      Tier 1: httpx (nhanh, nhẹ)
+      Tier 2: requests (ổn định hơn trên Railway)
+      Tier 3: Playwright (JS-only sites, chậm nhưng đầy đủ)
+    """
+    html = ""
+
+    # Tier 1: httpx
     try:
         resp = httpx.get(url, headers=HEADERS, timeout=8.0, follow_redirects=True)
         if resp.status_code == 200:
-            return resp.text
+            html = resp.text
     except Exception:
         pass
-    # Fallback: requests (ổn định hơn trên Railway)
-    try:
-        import requests as _req
-        resp = _req.get(url, headers=HEADERS, timeout=8, allow_redirects=True)
-        if resp.status_code == 200:
-            return resp.text
-    except Exception:
-        pass
-    return ""
+
+    # Tier 2: requests fallback
+    if not html:
+        try:
+            import requests as _req
+            resp = _req.get(url, headers=HEADERS, timeout=8, allow_redirects=True)
+            if resp.status_code == 200:
+                html = resp.text
+        except Exception:
+            pass
+
+    # Tier 3: Playwright nếu HTML trống hoặc JS-only
+    if _is_js_only(html):
+        pw_html = _fetch_with_playwright(url)
+        if pw_html:
+            html = pw_html
+
+    return html
 
 
 def crawl_website_emails(website: str) -> List[Dict]:
