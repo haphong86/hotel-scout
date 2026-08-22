@@ -263,8 +263,9 @@ def run_continuous_scout_cycle():
 def run_continuous_scout_cycle(cities=None):
     """
     Chu kỳ 3 phút chạy liên tục 24/7:
-    1. Scan KS mới từ OSM → lưu vào DB
-    2. Crawl website tìm email → verify SMTP → lưu Contact
+    1a. OSM scan → KS mới → lưu DB
+    1b. Google Maps scan → resort/villa/homestay → lấy domain → scan email ngay
+    2.  Scan domain tất cả KS có website chưa có email → lưu email
     """
     if cities is None:
         cities = ["Đà Nẵng", "Hội An", "Quảng Nam"]
@@ -316,7 +317,98 @@ def run_continuous_scout_cycle(cities=None):
     except Exception as e:
         log_activity("⚠️ Lỗi scanner", str(e)[:80])
 
-    # ── PHẦN 2: Crawl email — session MỚI hoàn toàn ─────────────
+    # ── PHẦN 1b: Google Maps scan → domain → email ngay ──────────
+    try:
+        import random as _rnd
+        from scanner.google_maps_scanner import scan_google_maps
+        from tools.domain_email_scanner import scan_domain
+
+        gmap_type = _rnd.choice(["resort", "villa", "boutique hotel", "homestay"])
+        gmap_city = cities[0]  # Lấy thành phố đầu tiên trong batch
+
+        log_activity("🗺️ Google Maps", f"Tìm '{gmap_type}' tại {gmap_city}...")
+        gmap_results = scan_google_maps(gmap_city, search_type=gmap_type, max_results=10)
+
+        gmap_new_hotels = 0
+        gmap_new_emails = 0
+
+        for item in gmap_results:
+            name    = (item.get("name") or "").strip()
+            website = (item.get("website") or "").strip()
+            if not name or len(name) < 3:
+                continue
+
+            # Lưu hotel nếu chưa có
+            sg = get_session()
+            try:
+                exists = sg.query(Hotel).filter(
+                    Hotel.name == name, Hotel.city == gmap_city
+                ).first()
+                if not exists:
+                    new_h = Hotel(
+                        name=name, city=gmap_city,
+                        address=item.get("address"),
+                        website=website or None,
+                        phone_main=item.get("phone"),
+                        rating=item.get("rating", 0),
+                        source="google_maps", status="Mới tìm thấy",
+                    )
+                    sg.add(new_h)
+                    sg.commit()
+                    sg.refresh(new_h)
+                    hotel_id = new_h.id
+                    gmap_new_hotels += 1
+                else:
+                    hotel_id = exists.id
+                sg.close()
+            except Exception:
+                try: sg.close()
+                except Exception: pass
+                continue
+
+            # Scan domain ngay nếu có website
+            if not website:
+                continue
+            try:
+                _, emails = scan_domain(website)
+                if not emails:
+                    continue
+                se = get_session()
+                for email in emails:
+                    already = se.query(Contact).filter(Contact.email == email).first()
+                    if already:
+                        continue
+                    se.add(Contact(
+                        hotel_id=hotel_id,
+                        email=email,
+                        title="",
+                        verify_status="LIKELY",
+                        is_valid=True,
+                        source="google_maps_crawl",
+                        can_send=True,
+                    ))
+                    gmap_new_emails += 1
+                se.commit()
+                se.close()
+                if emails:
+                    log_activity(
+                        "✅ GMaps email",
+                        f"{name}: {', '.join(emails[:2])}" + (f" +{len(emails)-2} nữa" if len(emails) > 2 else "")
+                    )
+            except Exception as eg:
+                log_activity("⚠️ GMaps domain", f"{name}: {str(eg)[:50]}")
+
+        if gmap_new_hotels or gmap_new_emails:
+            log_activity(
+                "🗺️ GMaps xong",
+                f"+{gmap_new_hotels} {gmap_type} | +{gmap_new_emails} email từ {gmap_city}"
+            )
+
+    except Exception as eg:
+        log_activity("⚠️ GMaps lỗi", str(eg)[:80])
+
+    # ── PHẦN 2: Scan domain tất cả KS có website chưa có email ───
+    from tools.domain_email_scanner import scan_domain, extract_emails_from_html
     s2 = get_session()
     try:
         unverified = (
@@ -327,37 +419,64 @@ def run_continuous_scout_cycle(cities=None):
             .all()
         )
         s2.close()
-        log_activity("📧 Crawl email", f"Đang xử lý {len(unverified)} KS chưa có email...")
+        log_activity("📧 Scan domain email", f"Đang quét {len(unverified)} website KS...")
+
         for idx, h in enumerate(unverified):
             try:
                 log_activity(
-                    f"🔍 [{idx+1}/{len(unverified)}] Crawl",
-                    f"{h.name} ({h.city or 'VN'}) — {(h.website or '')[:45]}"
+                    f"🔍 [{idx+1}/{len(unverified)}] Scan",
+                    f"{h.name} ({h.city or 'VN'}) — {(h.website or '')[:50]}"
                 )
-                candidates = generate_candidates(h)
-                if not candidates:
-                    log_activity("➖ Bỏ qua", f"{h.name} — không tìm thấy email trên website")
+
+                # Scan domain trực tiếp — đơn giản, không cần SMTP verify
+                _, emails = scan_domain(h.website)
+
+                if not emails:
+                    log_activity("➖ Bỏ qua", f"{h.name} — không có email trên website")
                     continue
-                log_activity(
-                    "🔬 Verify SMTP",
-                    f"{h.name} — đang kiểm tra {len(candidates)} email ứng viên..."
-                )
-                verified = verify_candidates(candidates, max_verify=6)
-                saved = save_verified_contacts(h, verified)
-                if saved > 0:
-                    new_emails += saved
-                    saved_emails = [c.get("email","") for c in verified
-                                    if c.get("verify_status") in ("VALID","LIKELY")
-                                    and any(k in c.get("method","") for k in ["website","crawl","1_website"])]
-                    log_activity("✅ Email lưu được", f"{h.name}: {', '.join(saved_emails)[:55]}")
+
+                # Lưu email tìm được vào DB
+                s3 = get_session()
+                saved_count = 0
+                for email in emails:
+                    try:
+                        # Kiểm tra trùng
+                        exists = s3.query(Contact).filter(Contact.email == email).first()
+                        if exists:
+                            continue
+                        s3.add(Contact(
+                            hotel_id=h.id,
+                            email=email,
+                            title="",
+                            verify_status="LIKELY",   # Tìm từ website → đáng tin
+                            is_valid=True,
+                            source="website_crawl",
+                            can_send=True,
+                        ))
+                        saved_count += 1
+                    except Exception:
+                        continue
+                s3.commit()
+                s3.close()
+
+                if saved_count > 0:
+                    new_emails += saved_count
+                    log_activity(
+                        "✅ Email lưu",
+                        f"{h.name}: {', '.join(emails[:3])}" + (f" +{len(emails)-3} nữa" if len(emails) > 3 else "")
+                    )
                 else:
-                    log_activity("❌ Không có email sống", f"{h.name} — {len(candidates)} email đều DEAD/NO_MX")
+                    log_activity("➖ Đã có", f"{h.name} — email đã tồn tại trong DB")
+
             except Exception as ex:
-                log_activity("⚠️ Lỗi crawl", f"{h.name}: {str(ex)[:60]}")
+                log_activity("⚠️ Lỗi scan", f"{h.name}: {str(ex)[:60]}")
                 continue
+
     except Exception as e:
-        log_activity("⚠️ Crawl lỗi", str(e)[:80])
+        log_activity("⚠️ Scan lỗi", str(e)[:80])
         try: s2.close()
+        except Exception: pass
+
         except Exception: pass
 
 
