@@ -178,11 +178,11 @@ def run_daily_autopilot_job():
             try:
                 candidates = generate_candidates(hc)
                 if candidates:
-                    verified = verify_candidates(candidates, hc)
+                    verified = verify_candidates(candidates, max_verify=8)   # ← sửa: chỉ truyền max_verify
                     saved = save_verified_contacts(hc, verified)
                     if saved:
-                        crawl_new += len(saved)
-                        print(f"  ✅ {hc.name[:35]} → +{len(saved)} email")
+                        crawl_new += saved
+                        print(f"  ✅ {hc.name[:35]} → +{saved} email")
             except Exception as e:
                 print(f"  ⚠️ {getattr(hc, 'name', '?')[:30]}: {e}")
         print(f"  📬 Tổng email mới crawl được: +{crawl_new}")
