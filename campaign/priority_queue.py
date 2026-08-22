@@ -34,17 +34,31 @@ def get_prioritized_outreach_queue(limit: int = 20, offset: int = 0, selected_ci
     queue = []
     seen_hotel_names = set()
     
-    # 1. Thu thập danh sách email và hotel_id ĐÃ TỪNG GỬI để loại trừ tuyệt đối
-    sent_logs = session.query(EmailLog).all()
-    seen_emails = {
-        l.subject.lower() for l in sent_logs if l.subject
-    }
-    sent_hotel_ids = {
-        l.hotel_id for l in sent_logs if l.hotel_id
-    }
+    # Thu thập email đã gửi để loại trừ đúng cấp độ CONTACT (không phải hotel)
+    sent_logs = session.query(EmailLog).filter(
+        EmailLog.status.in_(["SENT", "Đã gửi", "OPENED", "CLICKED", "REPLIED"])
+    ).all()
+
+    # Loại trừ cấp email: email nào đã gửi thành công → không gửi lại
+    sent_emails = set()
+    # Loại trừ cấp contact_id: contact nào đã gửi → skip (chọn contact khác trong hotel)
+    sent_contact_ids_global = set()
+    # Đếm số email đã gửi cho mỗi hotel trong NGÀY HÔM NAY
+    from datetime import date
+    today = date.today()
+    hotels_sent_today = set()
+
     for l in sent_logs:
         if l.contact and l.contact.email:
-            seen_emails.add(l.contact.email.strip().lower())
+            sent_emails.add(l.contact.email.strip().lower())
+        if l.contact_id:
+            sent_contact_ids_global.add(l.contact_id)
+        # Nếu gửi hôm nay → không gửi hotel này thêm 1 email nào nữa trong ngày
+        if l.sent_at and l.sent_at.date() == today and l.hotel_id:
+            hotels_sent_today.add(l.hotel_id)
+
+    # ⚠️ KHÔNG block cả hotel — chỉ block contact đã gửi & email đã gửi
+    seen_emails = sent_emails.copy()
 
     # ══════════════════════════════════════════════════════════
     # NHÓM 1: DỰ ÁN PRE-OPENING / SẮP KHAI TRƯƠNG (ƯU TIÊN SỐ 1 TUYỆT ĐỐI)
@@ -95,43 +109,40 @@ def get_prioritized_outreach_queue(limit: int = 20, offset: int = 0, selected_ci
     # NHÓM 2: KHÁCH SẠN MỚI & CHƯA TỪNG GỬI EMAIL (WATERFALL CADENCE)
     # ══════════════════════════════════════════════════════════
     if len(queue) < total_needed:
-        # Lấy các khách sạn CHƯA TỪNG LIÊN HỆ
+        # Lấy tất cả hotels có contact VALID — KHÔNG loại theo hotel_id đã gửi
+        # (vì 1 hotel có nhiều contact, chỉ loại nếu ĐÃ GỬI HÔM NAY)
         q_hotels = session.query(Hotel).filter(
-            Hotel.status.notin_(["Đã liên hệ", "Đã reply", "Không quan tâm"]),
-            Hotel.id.notin_(sent_hotel_ids) if sent_hotel_ids else True
+            Hotel.status.notin_(["Không quan tâm", "Đã reply"]),
         )
         if selected_cities:
             q_hotels = q_hotels.filter(Hotel.city.in_(selected_cities))
 
         candidate_hotels = q_hotels.all()
 
-        # Tính điểm Lead Score cho từng khách sạn
+        # Tính điểm Lead Score
         scored_hotels = []
         for h in candidate_hotels:
             if h.name.lower() in seen_hotel_names:
                 continue
-
+            # Bỏ qua hotel đã gửi email HÔM NAY (max 1 email/hotel/ngày)
+            if h.id in hotels_sent_today:
+                continue
             score_data = score_hotel(h)
             scored_hotels.append((h, score_data))
 
-        # Sắp xếp theo Lead Score từ cao xuống thấp
         scored_hotels.sort(key=lambda x: x[1]["score"], reverse=True)
 
         for h, score_data in scored_hotels:
             if len(queue) >= total_needed:
                 break
 
-            # CHỈ LẤY CÁC CONTACT ĐÃ ĐƯỢC XÁC THỰC SỐNG 100% (VALID)
+            # CHỈ LẤY CONTACT ĐÃ VERIFY VALID
             contacts = [c for c in (h.contacts or []) if c.verify_status == "VALID" and c.is_valid is True]
             if not contacts:
                 continue
 
-            # Áp dụng Waterfall Cadence: GM / CEO -> DOSM / Marcom -> Sales -> Info
-            # Tìm danh sách email đã gửi trước đây
-            sent_contact_ids = {
-                l.contact_id for l in session.query(EmailLog).filter(EmailLog.hotel_id == h.id).all()
-            }
-
+            # Waterfall Cadence: GM → Marketing → Sales → Info
+            # Dùng global sent_contact_ids để biết contact nào đã gửi bao giờ
             def role_rank(c):
                 t = (c.title or "").lower()
                 e = (c.email or "").lower()
@@ -144,15 +155,16 @@ def get_prioritized_outreach_queue(limit: int = 20, offset: int = 0, selected_ci
                 return 4
 
             sorted_contacts = sorted(contacts, key=role_rank)
-            
-            # Chọn contact tiếp theo trong Waterfall Cadence
+
+            # Chọn contact TIẾP THEO chưa gửi bao giờ (drip theo thứ tự chức danh)
             chosen_c = None
             for c in sorted_contacts:
-                if c.id not in sent_contact_ids:
-                    c_email = (c.email or "").strip().lower()
-                    if is_strictly_valid_email(c_email) and c_email not in seen_emails and not is_blacklisted_domain(c_email.split("@")[-1]):
-                        chosen_c = c
-                        break
+                if c.id in sent_contact_ids_global:
+                    continue  # Contact này đã gửi rồi → thử contact tiếp theo
+                c_email = (c.email or "").strip().lower()
+                if is_strictly_valid_email(c_email) and c_email not in seen_emails and not is_blacklisted_domain(c_email.split("@")[-1]):
+                    chosen_c = c
+                    break
 
             if not chosen_c:
                 continue
