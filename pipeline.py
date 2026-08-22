@@ -214,14 +214,22 @@ def save_verified_contacts(hotel_or_id: Any, verified: List[Dict]) -> int:
     saved = 0
     try:
         for e in verified:
-            # ── CHỈ LƯU EMAIL ĐÃ XÁC NHẬN SỐNG (SMTP 250 OK) ──────────────
-            # VALID   = SMTP handshake thành công → hòm thư tồn tại ✅
-            # LIKELY  = MX có nhưng SMTP không confirm → KHÔNG LƯU ❌
-            # RISKY   = đáng ngờ → KHÔNG LƯU ❌
-            # NO_MX   = không có mail server → KHÔNG LƯU ❌
-            # INVALID = chắc chắn chết → KHÔNG LƯU ❌
-            if e.get("verify_status") != "VALID":
-                continue
+            status = e.get("verify_status", "")
+            source = e.get("method", e.get("source", ""))
+
+            # ── LOGIC LƯU THÔNG MINH THEO NGUỒN ──────────────────────────
+            # Email TÌM THẲNG từ HTML website → chỉ cần MX tồn tại (VALID hoặc LIKELY)
+            #   Lý do: Railway IP bị block SMTP probe → email thật vẫn bị đánh LIKELY
+            #   Nhưng nếu email NẰM TRÊN TRANG CONTACT → đó là email thật
+            is_website_crawl = any(k in source for k in ["website", "crawl", "1_website", "html"])
+            if is_website_crawl:
+                # Chấp nhận VALID hoặc LIKELY (MX OK) — loại NO_MX và INVALID
+                if status in ("NO_MX", "INVALID"):
+                    continue
+            else:
+                # Pattern-guessed → cần SMTP 250 OK thật sự
+                if status != "VALID":
+                    continue
 
             email = e.get("email", "").strip().lower()
             if not email or " " in email or "http" in email or ":" in email or "/" in email or email.count("@") != 1:
