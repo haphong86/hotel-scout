@@ -10,20 +10,58 @@ import time
 import random
 from typing import List, Dict
 
-# Các loại accommodation cần scan
+# Các loại accommodation CÓ business listing thật trên Google Maps (có phone)
 SEARCH_TYPES = [
-    "homestay",
-    "villa cho thuê",
-    "căn hộ du lịch",
-    "nhà nghỉ",
     "resort",
-    "bungalow",
-    "farmstay",
+    "villa",
+    "boutique hotel",
+    "homestay",
+    "bungalow resort",
+    "căn hộ cho thuê ngắn hạn",
+]
+
+# Domain OTA — bỏ qua, lấy website riêng thôi
+OTA_DOMAINS = [
+    "booking.com", "agoda.com", "airbnb.com", "traveloka.com",
+    "expedia.com", "tripadvisor.com", "bluepillow.com", "klook.com",
+    "google.com", "maps.google", "goo.gl",
 ]
 
 
 def _random_delay(min_s=1.5, max_s=3.5):
     time.sleep(random.uniform(min_s, max_s))
+
+
+def _extract_phone_from_text(text: str) -> str:
+    """Tìm số điện thoại VN từ text thô"""
+    patterns = [
+        r'\+84\s?\d{2,3}\s?\d{3,4}\s?\d{3,4}',   # +84 xxx
+        r'0\d{2}[\s.-]?\d{3,4}[\s.-]?\d{3,4}',    # 0xx xxxx xxxx
+        r'0\d{9,10}',                               # 0xxxxxxxxxx
+    ]
+    for pat in patterns:
+        found = re.findall(pat, text)
+        if found:
+            phone = re.sub(r'[\s.\-]', '', found[0])
+            if 9 <= len(phone.lstrip('+')) <= 12:
+                return phone
+    return ""
+
+
+def _clean_website(url: str) -> str:
+    """Lọc bỏ OTA domain — chỉ lấy website riêng của property"""
+    if not url:
+        return ""
+    # Decode Google redirect URL
+    if "/url?q=" in url:
+        import urllib.parse
+        qs = urllib.parse.parse_qs(urllib.parse.urlparse(url).query)
+        url = qs.get("q", [url])[0]
+    # Loại OTA
+    for ota in OTA_DOMAINS:
+        if ota in url.lower():
+            return ""
+    return url.split("?")[0].strip()
 
 
 def scan_google_maps(city: str, search_type: str = "homestay", max_results: int = 20) -> List[Dict]:
@@ -88,9 +126,20 @@ def scan_google_maps(city: str, search_type: str = "homestay", max_results: int 
 
                     # Đọc thông tin từ panel chi tiết bên phải
                     name    = _get_text(page, "h1.DUwDvf, h1[class*='fontHeadlineLarge']")
-                    address = _get_text(page, "button[data-item-id='address'] div.Io6YTe, [data-tooltip='Sao chép địa chỉ'] div.Io6YTe")
-                    phone   = _get_text(page, "button[data-item-id*='phone'] div.Io6YTe, [data-tooltip='Sao chép số điện thoại'] div.Io6YTe")
-                    website = _get_attr(page,  "a[data-item-id='authority']", "href")
+                    address = _get_text(page, "button[data-item-id='address'] div.Io6YTe")
+
+                    # Phone: dùng regex trên toàn bộ text panel (đáng tin hơn selector)
+                    panel_text = ""
+                    try:
+                        panel_text = page.locator("div[role='main']").first.inner_text()
+                    except Exception:
+                        pass
+                    phone = _extract_phone_from_text(panel_text)
+
+                    # Website: lấy link authority rồi lọc OTA
+                    raw_website = _get_attr(page, "a[data-item-id='authority']", "href")
+                    website = _clean_website(raw_website)
+
                     rating  = _get_text(page, "div.F7nice span[aria-hidden='true']")
 
                     if not name or name in seen_names:
