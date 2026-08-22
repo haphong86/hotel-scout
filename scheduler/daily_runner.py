@@ -539,25 +539,56 @@ from datetime import datetime, timezone, timedelta
 import json
 
 LAST_RUN_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs", "last_run.json")
+CITY_COOLDOWN_HOURS = 6   # Không quét lại OSM/GMaps cho 1 thành phố trong vòng 6 tiếng
 
 
-def _get_last_run_date() -> str:
+def _load_state() -> dict:
+    """Load trạng thái bền vững: last_run_date, city_index, city_last_scanned"""
     if os.path.exists(LAST_RUN_FILE):
         try:
             with open(LAST_RUN_FILE, "r", encoding="utf-8") as f:
-                return json.load(f).get("last_run_date", "")
+                return json.load(f)
         except Exception:
             pass
-    return ""
+    return {}
+
+
+def _save_state(state: dict):
+    """Ghi trạng thái vào file — sống qua restart"""
+    os.makedirs(os.path.dirname(LAST_RUN_FILE), exist_ok=True)
+    try:
+        state["updated_at"] = datetime.now(timezone(timedelta(hours=7))).strftime("%d/%m/%Y %H:%M:%S")
+        with open(LAST_RUN_FILE, "w", encoding="utf-8") as f:
+            json.dump(state, f, ensure_ascii=False)
+    except Exception:
+        pass
+
+
+def _get_last_run_date() -> str:
+    return _load_state().get("last_run_date", "")
 
 
 def _set_last_run_date(date_str: str):
-    os.makedirs(os.path.dirname(LAST_RUN_FILE), exist_ok=True)
-    try:
-        with open(LAST_RUN_FILE, "w", encoding="utf-8") as f:
-            json.dump({"last_run_date": date_str, "updated_at": datetime.now(timezone(timedelta(hours=7))).strftime("%d/%m/%Y %H:%M:%S")}, f)
-    except Exception:
-        pass
+    state = _load_state()
+    state["last_run_date"] = date_str
+    _save_state(state)
+
+
+def _city_needs_scan(city: str) -> bool:
+    """True nếu thành phố này chưa được quét trong CITY_COOLDOWN_HOURS giờ qua"""
+    state = _load_state()
+    scanned = state.get("city_last_scanned", {})
+    last_ts = scanned.get(city, 0)
+    return (time.time() - last_ts) >= CITY_COOLDOWN_HOURS * 3600
+
+
+def _mark_city_scanned(city: str):
+    """Đánh dấu thành phố vừa quét xong"""
+    state = _load_state()
+    scanned = state.get("city_last_scanned", {})
+    scanned[city] = time.time()
+    state["city_last_scanned"] = scanned
+    _save_state(state)
 
 
 def _cron_loop():
@@ -601,10 +632,13 @@ def _cron_loop():
         "Mộc Châu", "Hòa Bình",
         "Bình Định", "Phú Yên",
     ]
-    city_index = 0       # Xoay vòng qua 40 thành phố
+    # ── Load city_index từ state — sống qua restart ─────────────
+    _state = _load_state()
+    city_index = _state.get("city_index", 0)
     last_scout_time = 0
     SCOUT_INTERVAL = 180  # Mỗi 3 phút quét 3 thành phố → hết 40 thành phố sau ~40 phút
 
+    log_activity("🔄 TIẾP TỤC", f"Khôi phục từ city_index={city_index} ({ALL_CITIES[city_index % len(ALL_CITIES)]})")
 
     while _scheduler_running:
         try:
@@ -623,14 +657,31 @@ def _cron_loop():
             if now_ts - last_scout_time >= SCOUT_INTERVAL:
                 last_scout_time = now_ts
 
-                # Lấy 3 thành phố tiếp theo trong vòng xoay
+                # Lấy 3 thành phố tiếp theo — bỏ qua nếu quét gần đây
                 batch_cities = []
-                for _ in range(3):
-                    batch_cities.append(ALL_CITIES[city_index % len(ALL_CITIES)])
+                checked = 0
+                while len(batch_cities) < 3 and checked < len(ALL_CITIES):
+                    city = ALL_CITIES[city_index % len(ALL_CITIES)]
                     city_index += 1
+                    checked += 1
+                    if _city_needs_scan(city):
+                        batch_cities.append(city)
+                    else:
+                        log_activity("⏭️ Bỏ qua", f"{city} — đã quét trong {CITY_COOLDOWN_HOURS}h qua")
 
-                log_activity("🔍 SCAN DATA", f"Đang quét: {', '.join(batch_cities)}")
-                run_continuous_scout_cycle(batch_cities)
+                # Lưu city_index vào state để restart không mất tiến độ
+                _st = _load_state()
+                _st["city_index"] = city_index
+                _save_state(_st)
+
+                if not batch_cities:
+                    log_activity("✅ Toàn quốc đã quét", f"Tất cả {len(ALL_CITIES)} thành phố đều trong cooldown — nghỉ 3 phút")
+                else:
+                    log_activity("🔍 SCAN DATA", f"Đang quét: {', '.join(batch_cities)}")
+                    run_continuous_scout_cycle(batch_cities)
+                    # Đánh dấu đã quét
+                    for c in batch_cities:
+                        _mark_city_scanned(c)
 
                 # Google Maps + domain email scan đã tích hợp vào
                 # run_continuous_scout_cycle() Part 1b — chạy mỗi chu kỳ
