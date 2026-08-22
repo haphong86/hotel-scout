@@ -138,11 +138,16 @@ def get_prioritized_outreach_queue(limit: int = 20, offset: int = 0, selected_ci
 
             # LẤY CONTACT: VALID + LIKELY từ website crawl (tìm thẳng từ HTML — đáng tin)
             # VALID = SMTP xác nhận | LIKELY từ website = tìm trực tiếp trên trang KS
+            CRAWL_SOURCES = {
+                "website_crawled", "website_crawl",
+                "google_maps_crawl", "pipeline",
+                "verified_decision_maker",
+            }
             contacts = [
                 c for c in (h.contacts or [])
                 if c.is_valid is True and (
                     c.verify_status == "VALID"
-                    or (c.verify_status == "LIKELY" and (c.source or "").endswith("_crawl"))
+                    or (c.verify_status == "LIKELY" and (c.source or "") in CRAWL_SOURCES)
                 )
             ]
             if not contacts:

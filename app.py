@@ -925,9 +925,12 @@ with tab_backlog:
     """, unsafe_allow_html=True)
 
     from campaign.priority_queue import get_backlog_queue_21_plus
-    backlog_items = get_backlog_queue_21_plus(selected_cities=target_cities, limit=300)
 
-    st.markdown(f"#### 📋 Danh sách {len(backlog_items)} Email Dự Bị Đang Xếp Hàng")
+    # Backlog hiện toàn quốc — không bị giới hạn bởi sidebar
+    # (sidebar chỉ ảnh hưởng Tab 1 Top 20 hôm nay)
+    backlog_items = get_backlog_queue_21_plus(selected_cities=None, limit=500)
+
+    st.markdown(f"#### 📋 Danh sách **{len(backlog_items)}** Email Dự Bị Đang Xếp Hàng — Toàn Quốc")
 
     if not backlog_items:
         st.info("Hệ thống đang chạy ngầm quét & xác thực email sống cho các khách sạn còn lại. Các email mới sẽ tự động hiển thị tại đây!")
