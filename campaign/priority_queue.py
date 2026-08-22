@@ -136,8 +136,15 @@ def get_prioritized_outreach_queue(limit: int = 20, offset: int = 0, selected_ci
             if len(queue) >= total_needed:
                 break
 
-            # CHỈ LẤY CONTACT ĐÃ VERIFY VALID
-            contacts = [c for c in (h.contacts or []) if c.verify_status == "VALID" and c.is_valid is True]
+            # LẤY CONTACT: VALID + LIKELY từ website crawl (tìm thẳng từ HTML — đáng tin)
+            # VALID = SMTP xác nhận | LIKELY từ website = tìm trực tiếp trên trang KS
+            contacts = [
+                c for c in (h.contacts or [])
+                if c.is_valid is True and (
+                    c.verify_status == "VALID"
+                    or (c.verify_status == "LIKELY" and (c.source or "").endswith("_crawl"))
+                )
+            ]
             if not contacts:
                 continue
 
