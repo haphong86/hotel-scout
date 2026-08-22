@@ -214,8 +214,14 @@ def save_verified_contacts(hotel_or_id: Any, verified: List[Dict]) -> int:
     saved = 0
     try:
         for e in verified:
-            if not e.get("can_send", False):
-                continue  # Bỏ qua email INVALID/NO_MX
+            # ── CHỈ LƯU EMAIL ĐÃ XÁC NHẬN SỐNG (SMTP 250 OK) ──────────────
+            # VALID   = SMTP handshake thành công → hòm thư tồn tại ✅
+            # LIKELY  = MX có nhưng SMTP không confirm → KHÔNG LƯU ❌
+            # RISKY   = đáng ngờ → KHÔNG LƯU ❌
+            # NO_MX   = không có mail server → KHÔNG LƯU ❌
+            # INVALID = chắc chắn chết → KHÔNG LƯU ❌
+            if e.get("verify_status") != "VALID":
+                continue
 
             email = e.get("email", "").strip().lower()
             if not email or " " in email or "http" in email or ":" in email or "/" in email or email.count("@") != 1:

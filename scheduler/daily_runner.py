@@ -344,8 +344,43 @@ def run_continuous_scout_cycle(cities=None):
 
     log_activity(
         "🎉 Chu kỳ hoàn tất",
-        f"KS mới: +{new_hotels} | Email mới: +{new_emails}"
+        f"KS mới: +{new_hotels} | Email VALID mới: +{new_emails}"
     )
+
+    # ── PHẦN 3: Re-verify email LIKELY cũ trong DB ─────────────
+    # Cứ mỗi chu kỳ, lấy 5 email LIKELY → verify lại → upgrade VALID hoặc xóa
+    try:
+        from extractor.email_verifier import verify_email
+        rev_session = get_session()
+        likely_contacts = (
+            rev_session.query(Contact)
+            .filter(Contact.verify_status == "LIKELY")
+            .order_by(Contact.id.asc())
+            .limit(5)
+            .all()
+        )
+        upgraded = 0
+        removed  = 0
+        for c in likely_contacts:
+            try:
+                result = verify_email(c.email)
+                if result.status == "VALID":
+                    c.verify_status = "VALID"
+                    c.is_valid = True
+                    upgraded += 1
+                elif result.status in ("INVALID", "NO_MX"):
+                    rev_session.delete(c)
+                    removed += 1
+                # LIKELY giữ nguyên → thử lại lần sau
+            except Exception:
+                pass
+        rev_session.commit()
+        rev_session.close()
+        if upgraded or removed:
+            log_activity("🔬 Re-verify LIKELY",
+                         f"Nâng cấp {upgraded} → VALID | Xóa {removed} email chết")
+    except Exception as e:
+        log_activity("⚠️ Re-verify lỗi", str(e))
 
 
 from datetime import datetime, timezone, timedelta
