@@ -270,14 +270,14 @@ def run_continuous_scout_cycle(cities=None):
         cities = ["Đà Nẵng", "Hội An", "Quảng Nam"]
 
     log_activity("🗺️ Bắt đầu quét OSM", f"Đang tìm KS mới tại: {', '.join(cities)}")
-    session = get_session()
     new_hotels = 0
     new_emails  = 0
 
-    # ── PHẦN 1: Scan KS mới từ OSM ────────────────────────────
+    # ── PHẦN 1: Scan KS mới từ OSM — session riêng ─────────────
     try:
         from scanner.overpass_scanner import scan_city_osm
         for city in cities:
+            s1 = get_session()   # Session mới cho mỗi thành phố
             try:
                 log_activity("🔭 Quét OpenStreetMap", f"Đang tìm khách sạn tại {city}...")
                 osm_hotels = scan_city_osm(city, radius_km=15)
@@ -286,11 +286,11 @@ def run_continuous_scout_cycle(cities=None):
                     name = (h.get("name") or "").strip()
                     if not name or len(name) < 3:
                         continue
-                    exists = session.query(Hotel).filter(
+                    exists = s1.query(Hotel).filter(
                         Hotel.name == name, Hotel.city == city
                     ).first()
                     if not exists:
-                        session.add(Hotel(
+                        s1.add(Hotel(
                             name=name, city=city,
                             address=h.get("address"),
                             website=h.get("website") or h.get("source_url"),
@@ -301,27 +301,32 @@ def run_continuous_scout_cycle(cities=None):
                         ))
                         new_hotels += 1
                         city_new += 1
-                session.commit()
+                s1.commit()
                 if city_new > 0:
                     log_activity("🏢 KS mới phát hiện", f"+{city_new} KS mới tại {city}")
                 else:
                     log_activity("✔️ Quét xong", f"{city} — không có KS mới (đã đủ)")
             except Exception as e:
-                log_activity("⚠️ Lỗi OSM", f"{city}: {str(e)[:60]}")
-                session.rollback()
+                log_activity("⚠️ Lỗi OSM", f"{city}: {str(e)[:80]}")
+                try: s1.rollback()
+                except Exception: pass
+            finally:
+                try: s1.close()
+                except Exception: pass
     except Exception as e:
         log_activity("⚠️ Lỗi scanner", str(e)[:80])
 
-    # ── PHẦN 2: Crawl email cho KS chưa có contact ─────────────
+    # ── PHẦN 2: Crawl email — session MỚI hoàn toàn ─────────────
+    s2 = get_session()
     try:
         unverified = (
-            session.query(Hotel)
+            s2.query(Hotel)
             .filter(Hotel.website.like("http%"), ~Hotel.contacts.any())
             .order_by(Hotel.stars.desc(), Hotel.created_at.desc())
             .limit(15)
             .all()
         )
-        session.close()
+        s2.close()
         log_activity("📧 Crawl email", f"Đang xử lý {len(unverified)} KS chưa có email...")
         for idx, h in enumerate(unverified):
             try:
@@ -341,19 +346,20 @@ def run_continuous_scout_cycle(cities=None):
                 saved = save_verified_contacts(h, verified)
                 if saved > 0:
                     new_emails += saved
-                    valid_list = [c.get("email","") for c in verified if c.get("verify_status")=="VALID"]
-                    log_activity("✅ Email VALID lưu", f"{h.name}: {', '.join(valid_list)[:55]}")
+                    saved_emails = [c.get("email","") for c in verified
+                                    if c.get("verify_status") in ("VALID","LIKELY")
+                                    and any(k in c.get("method","") for k in ["website","crawl","1_website"])]
+                    log_activity("✅ Email lưu được", f"{h.name}: {', '.join(saved_emails)[:55]}")
                 else:
-                    log_activity("❌ Không có email sống", f"{h.name} — {len(candidates)} email đều DEAD/RISKY")
+                    log_activity("❌ Không có email sống", f"{h.name} — {len(candidates)} email đều DEAD/NO_MX")
             except Exception as ex:
                 log_activity("⚠️ Lỗi crawl", f"{h.name}: {str(ex)[:60]}")
                 continue
     except Exception as e:
         log_activity("⚠️ Crawl lỗi", str(e)[:80])
-        try:
-            session.close()
-        except Exception:
-            pass
+        try: s2.close()
+        except Exception: pass
+
 
     log_activity(
         "🎉 Chu kỳ xong",
