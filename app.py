@@ -21,6 +21,13 @@ try:
 except Exception:
     pass
 
+# ── Auto-seed PostgreSQL lần đầu tiên khi deploy Railway ─────────
+try:
+    from database.seed_postgres import seed_if_empty
+    seed_if_empty()
+except Exception as _seed_err:
+    pass  # Không để seed lỗi crash toàn bộ app
+
 import socket
 
 # Ép buộc Socket phân giải IPv4 trên Railway/Linux Container để triệt tiêu lỗi [Errno 101] Network is unreachable
