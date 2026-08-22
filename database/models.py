@@ -188,12 +188,33 @@ def get_now_vn() -> datetime:
 
 
 def init_db():
-    """Khởi tạo database và tạo các bảng với chế độ WAL + Timeout chống lock 100%"""
+    """Khởi tạo database — tự động nhận diện PostgreSQL (Railway) hoặc SQLite (local)."""
     global _engine, _SessionFactory
-    if _engine is None:
-        os.makedirs(os.path.dirname(DATABASE_URL.replace("sqlite:///", "")) or "database", exist_ok=True)
+    if _engine is not None:
+        return _engine
+
+    db_url = DATABASE_URL or ""
+
+    # ── PostgreSQL (Railway production) ──────────────────────────
+    if db_url.startswith("postgresql://") or db_url.startswith("postgres://"):
+        # Railway dùng postgres:// nhưng SQLAlchemy cần postgresql://
+        db_url = db_url.replace("postgres://", "postgresql://", 1)
         _engine = create_engine(
-            DATABASE_URL,
+            db_url,
+            pool_pre_ping=True,       # Tự reconnect nếu connection bị drop
+            pool_size=5,
+            max_overflow=10,
+            echo=False
+        )
+        print("🐘 Dùng PostgreSQL (Railway)")
+
+    # ── SQLite (local / fallback) ─────────────────────────────────
+    else:
+        sqlite_path = db_url.replace("sqlite:///", "")
+        if sqlite_path:
+            os.makedirs(os.path.dirname(sqlite_path) or "database", exist_ok=True)
+        _engine = create_engine(
+            db_url,
             connect_args={"timeout": 60, "check_same_thread": False},
             echo=False
         )
@@ -206,10 +227,12 @@ def init_db():
             cursor.execute("PRAGMA busy_timeout=60000")
             cursor.close()
 
-        Base.metadata.create_all(_engine)
-        _SessionFactory = sessionmaker(bind=_engine)
+        print("🗄️  Dùng SQLite (local)")
 
+    Base.metadata.create_all(_engine)
+    _SessionFactory = sessionmaker(bind=_engine)
     return _engine
+
 
 
 def get_session():
