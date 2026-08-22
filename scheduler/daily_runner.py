@@ -277,43 +277,57 @@ def run_continuous_scout_cycle(cities=None):
     # ── PHẦN 1: Scan KS mới từ OSM — session riêng ─────────────
     try:
         from scanner.overpass_scanner import scan_city_osm
+        from sqlalchemy.exc import IntegrityError
+
         for city in cities:
-            s1 = get_session()   # Session mới cho mỗi thành phố
             try:
                 log_activity("🔭 Quét OpenStreetMap", f"Đang tìm khách sạn tại {city}...")
                 osm_hotels = scan_city_osm(city, radius_km=15)
                 city_new = 0
+
                 for h in osm_hotels:
                     name = (h.get("name") or "").strip()
                     if not name or len(name) < 3:
                         continue
-                    exists = s1.query(Hotel).filter(
-                        Hotel.name == name, Hotel.city == city
-                    ).first()
-                    if not exists:
-                        s1.add(Hotel(
-                            name=name, city=city,
-                            address=h.get("address"),
-                            website=h.get("website") or h.get("source_url"),
-                            phone_main=h.get("phone_main"),
-                            rating=h.get("rating"),
-                            stars=h.get("stars", 3),
-                            source="osm", status="Mới tìm thấy"
-                        ))
-                        new_hotels += 1
-                        city_new += 1
-                s1.commit()
+
+                    # Mỗi hotel dùng session riêng → UniqueViolation chỉ ảnh hưởng 1 hotel
+                    s1 = get_session()
+                    try:
+                        exists = s1.query(Hotel).filter(
+                            Hotel.name == name, Hotel.city == city
+                        ).first()
+                        if not exists:
+                            s1.add(Hotel(
+                                name=name, city=city,
+                                address=h.get("address"),
+                                website=h.get("website") or h.get("source_url"),
+                                phone_main=h.get("phone_main"),
+                                rating=h.get("rating"),
+                                stars=h.get("stars", 3),
+                                source="osm", status="Mới tìm thấy"
+                            ))
+                            s1.commit()
+                            new_hotels += 1
+                            city_new += 1
+                    except IntegrityError:
+                        # Hotel đã tồn tại (race condition) — bỏ qua
+                        try: s1.rollback()
+                        except Exception: pass
+                    except Exception as he:
+                        try: s1.rollback()
+                        except Exception: pass
+                    finally:
+                        try: s1.close()
+                        except Exception: pass
+
                 if city_new > 0:
                     log_activity("🏢 KS mới phát hiện", f"+{city_new} KS mới tại {city}")
                 else:
                     log_activity("✔️ Quét xong", f"{city} — không có KS mới (đã đủ)")
+
             except Exception as e:
                 log_activity("⚠️ Lỗi OSM", f"{city}: {str(e)[:80]}")
-                try: s1.rollback()
-                except Exception: pass
-            finally:
-                try: s1.close()
-                except Exception: pass
+
     except Exception as e:
         log_activity("⚠️ Lỗi scanner", str(e)[:80])
 
