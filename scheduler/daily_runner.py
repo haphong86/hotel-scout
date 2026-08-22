@@ -259,14 +259,16 @@ def run_continuous_scout_cycle():
 
     log_activity("🏢 Hoàn tất cào khách sạn", f"Đã lưu thêm +{new_saved} khách sạn mới vào hệ thống")
 
-def run_continuous_scout_cycle():
+def run_continuous_scout_cycle(cities=None):
     """
     Chu kỳ 3 phút chạy liên tục 24/7:
-    1. Scan KS mới từ OSM/Google Maps → lưu vào DB
+    1. Scan KS mới từ OSM → lưu vào DB
     2. Crawl website tìm email → verify SMTP → lưu Contact
-    Không để máy nghỉ, tích lũy data liên tục.
     """
-    log_activity("🔄 CHU KỲ SCAN + EMAIL", "Đang scan KS mới & crawl email...")
+    if cities is None:
+        cities = ["Đà Nẵng", "Hội An", "Quảng Nam"]
+
+    log_activity("🔄 CHU KỲ SCAN + EMAIL", f"Quét: {', '.join(cities)}")
     session = get_session()
     new_hotels = 0
     new_emails  = 0
@@ -279,7 +281,7 @@ def run_continuous_scout_cycle():
     ]
     try:
         from scanner.overpass_scanner import scan_city_osm
-        for city in target_cities[:3]:  # 3 thành phố/chu kỳ, xoay vòng
+        for city in cities:
             try:
                 osm_hotels = scan_city_osm(city, radius_km=15)
                 for h in osm_hotels:
@@ -372,11 +374,24 @@ def _set_last_run_date(date_str: str):
 
 
 def _cron_loop():
-    """Vòng lặp chạy ngầm 24/7 liên tục trên Railway (Chuẩn Giờ Việt Nam UTC+7)"""
-    last_scout_time = 0
+    """
+    Vòng lặp 24/7:
+    - 9:00 AM mỗi ngày → Gửi 20 email (3-7 phút/email)
+    - Cả ngày liên tục → Quét KS mới + Crawl email (xoay vòng 12 tỉnh)
+    """
     vn_tz = timezone(timedelta(hours=7))
-    print("⏰ [SCHEDULER] Bộ đếm giờ tự động 24/7 (Giờ VN UTC+7) đã kích hoạt!")
-    log_activity("🚀 KHỞI ĐỘNG HỆ THỐNG", "Bộ máy quét ngầm 24/7 & Lịch tự động (Giờ VN UTC+7) đã sẵn sàng")
+    print("⏰ [SCHEDULER] 24/7 khởi động!")
+    log_activity("🚀 KHỞI ĐỘNG", "Hệ thống 24/7 sẵn sàng — 9AM gửi email, cả ngày săn data mới")
+
+    # Toàn bộ 12 tỉnh thành trọng điểm — xoay vòng liên tục
+    ALL_CITIES = [
+        "Đà Nẵng", "Hội An", "Quảng Nam", "Huế", "Lăng Cô",
+        "Quy Nhơn", "Tuy Hòa", "Nha Trang", "Cam Ranh",
+        "Phan Thiết", "Đà Lạt", "Phú Quốc"
+    ]
+    city_index = 0          # Xoay vòng từng thành phố
+    last_scout_time = 0
+    SCOUT_INTERVAL = 180    # Quét mỗi 3 phút
 
     while _scheduler_running:
         try:
@@ -385,22 +400,29 @@ def _cron_loop():
             today_str = now_vn.strftime("%Y-%m-%d")
             last_run_date = _get_last_run_date()
 
-            # 1. Chạy tiến trình cào & verify email LIÊN TỤC mỗi 3–5 phút (cho đến khi hết 100% list data)
-            if now_ts - last_scout_time >= 180:  # Chạy mỗi 3 phút 1 batch 20 KS liên tục
-                last_scout_time = now_ts
-                run_continuous_scout_cycle()
-
-            # 2. Tự động gửi email trong khung giờ làm việc (09:00 - 17:00 Giờ VN)
-            if 9 <= now_vn.hour <= 17 and last_run_date != today_str:
+            # ── 1. GỬI EMAIL lúc đúng 9:00 AM (1 lần/ngày) ────────────────
+            if now_vn.hour == 9 and last_run_date != today_str:
                 _set_last_run_date(today_str)
-                log_activity("📤 BẮT ĐẦU CHIẾN DỊCH GỬI MAIL TỰ ĐỘNG", f"Đang gửi 20 email bậc thang (Giờ VN: {now_vn.strftime('%H:%M')})...")
+                log_activity("📤 GỬI EMAIL 9AM", "Bắt đầu gửi 20 email với delay 3-7 phút/email...")
                 run_daily_autopilot_job()
+
+            # ── 2. SCAN + CRAWL DATA liên tục cả ngày ───────────────────────
+            if now_ts - last_scout_time >= SCOUT_INTERVAL:
+                last_scout_time = now_ts
+
+                # Lấy 3 thành phố tiếp theo trong vòng xoay
+                batch_cities = []
+                for _ in range(3):
+                    batch_cities.append(ALL_CITIES[city_index % len(ALL_CITIES)])
+                    city_index += 1
+
+                log_activity("🔍 SCAN DATA", f"Đang quét: {', '.join(batch_cities)}")
+                run_continuous_scout_cycle(batch_cities)
 
         except Exception as e:
             print(f"⚠️ [SCHEDULER ERROR]: {e}")
-            log_activity("⚠️ Lỗi vòng lặp Scheduler", str(e))
+            log_activity("⚠️ Lỗi Scheduler", str(e))
 
-        # Nghỉ 15 giây giữa các nhịp kiểm tra
         time.sleep(15)
 
 
@@ -416,4 +438,4 @@ def start_scheduler():
 
 if __name__ == "__main__":
     print("🧪 Testing continuous scout cycle manually...")
-    run_continuous_scout_cycle()
+    run_continuous_scout_cycle(["Đà Nẵng", "Hội An", "Huế"])
