@@ -268,22 +268,19 @@ def run_continuous_scout_cycle(cities=None):
     if cities is None:
         cities = ["Đà Nẵng", "Hội An", "Quảng Nam"]
 
-    log_activity("🔄 CHU KỲ SCAN + EMAIL", f"Quét: {', '.join(cities)}")
+    log_activity("🗺️ Bắt đầu quét OSM", f"Đang tìm KS mới tại: {', '.join(cities)}")
     session = get_session()
     new_hotels = 0
     new_emails  = 0
 
-    # ── PHẦN 1: Scan KS mới từ OSM + Google Maps ──────────────
-    target_cities = [
-        "Đà Nẵng", "Hội An", "Quảng Nam", "Huế", "Lăng Cô",
-        "Quy Nhơn", "Tuy Hòa", "Nha Trang", "Cam Ranh",
-        "Phan Thiết", "Đà Lạt", "Phú Quốc"
-    ]
+    # ── PHẦN 1: Scan KS mới từ OSM ────────────────────────────
     try:
         from scanner.overpass_scanner import scan_city_osm
         for city in cities:
             try:
+                log_activity("🔭 Quét OpenStreetMap", f"Đang tìm khách sạn tại {city}...")
                 osm_hotels = scan_city_osm(city, radius_km=15)
+                city_new = 0
                 for h in osm_hotels:
                     name = (h.get("name") or "").strip()
                     if not name or len(name) < 3:
@@ -299,18 +296,20 @@ def run_continuous_scout_cycle(cities=None):
                             phone_main=h.get("phone_main"),
                             rating=h.get("rating"),
                             stars=h.get("stars", 3),
-                            source="osm",
-                            status="Mới tìm thấy"
+                            source="osm", status="Mới tìm thấy"
                         ))
                         new_hotels += 1
+                        city_new += 1
                 session.commit()
-            except Exception:
+                if city_new > 0:
+                    log_activity("🏢 KS mới phát hiện", f"+{city_new} KS mới tại {city}")
+                else:
+                    log_activity("✔️ Quét xong", f"{city} — không có KS mới (đã đủ)")
+            except Exception as e:
+                log_activity("⚠️ Lỗi OSM", f"{city}: {str(e)[:60]}")
                 session.rollback()
     except Exception as e:
-        log_activity("⚠️ Scan OSM lỗi", str(e))
-
-    if new_hotels > 0:
-        log_activity("🏢 KS mới từ OSM", f"+{new_hotels} khách sạn mới")
+        log_activity("⚠️ Lỗi scanner", str(e)[:80])
 
     # ── PHẦN 2: Crawl email cho KS chưa có contact ─────────────
     try:
@@ -322,29 +321,42 @@ def run_continuous_scout_cycle(cities=None):
             .all()
         )
         session.close()
-
-        for h in unverified:
+        log_activity("📧 Crawl email", f"Đang xử lý {len(unverified)} KS chưa có email...")
+        for idx, h in enumerate(unverified):
             try:
-                log_activity("🔍 Tìm email", f"{h.name} ({h.city or 'VN'})...")
+                log_activity(
+                    f"🔍 [{idx+1}/{len(unverified)}] Crawl",
+                    f"{h.name} ({h.city or 'VN'}) — {(h.website or '')[:45]}"
+                )
                 candidates = generate_candidates(h)
-                if candidates:
-                    verified = verify_candidates(candidates, max_verify=6)
-                    saved = save_verified_contacts(h, verified)
-                    if saved > 0:
-                        new_emails += saved
-                        log_activity("✅ Email mới", f"+{saved} email cho {h.name}")
-            except Exception:
+                if not candidates:
+                    log_activity("➖ Bỏ qua", f"{h.name} — không tìm thấy email trên website")
+                    continue
+                log_activity(
+                    "🔬 Verify SMTP",
+                    f"{h.name} — đang kiểm tra {len(candidates)} email ứng viên..."
+                )
+                verified = verify_candidates(candidates, max_verify=6)
+                saved = save_verified_contacts(h, verified)
+                if saved > 0:
+                    new_emails += saved
+                    valid_list = [c.get("email","") for c in verified if c.get("verify_status")=="VALID"]
+                    log_activity("✅ Email VALID lưu", f"{h.name}: {', '.join(valid_list)[:55]}")
+                else:
+                    log_activity("❌ Không có email sống", f"{h.name} — {len(candidates)} email đều DEAD/RISKY")
+            except Exception as ex:
+                log_activity("⚠️ Lỗi crawl", f"{h.name}: {str(ex)[:60]}")
                 continue
     except Exception as e:
-        log_activity("⚠️ Crawl email lỗi", str(e))
+        log_activity("⚠️ Crawl lỗi", str(e)[:80])
         try:
             session.close()
         except Exception:
             pass
 
     log_activity(
-        "🎉 Chu kỳ hoàn tất",
-        f"KS mới: +{new_hotels} | Email VALID mới: +{new_emails}"
+        "🎉 Chu kỳ xong",
+        f"KS mới: +{new_hotels} | Email VALID: +{new_emails} | Nghỉ 3 phút..."
     )
 
     # ── PHẦN 3: Re-verify email LIKELY cũ trong DB ─────────────
