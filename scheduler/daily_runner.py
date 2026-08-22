@@ -632,56 +632,8 @@ def _cron_loop():
                 log_activity("🔍 SCAN DATA", f"Đang quét: {', '.join(batch_cities)}")
                 run_continuous_scout_cycle(batch_cities)
 
-                # ── Google Maps scanner (mỗi 10 chu kỳ = ~30 phút) ──────────
-                # Tìm homestay/villa/airbnb host qua Google Maps
-                if city_index % 10 == 0:
-                    try:
-                        from scanner.google_maps_scanner import scan_google_maps
-                        gmap_city = ALL_CITIES[(city_index // 10) % len(ALL_CITIES)]
-                        import random as _rnd
-                        gmap_type = _rnd.choice([
-                            "homestay", "villa cho thuê",
-                            "căn hộ du lịch", "resort", "bungalow"
-                        ])
-                        log_activity(
-                            "🗺️ Google Maps Scan",
-                            f"Tìm '{gmap_type}' tại {gmap_city}..."
-                        )
-                        gmap_results = scan_google_maps(
-                            gmap_city, search_type=gmap_type, max_results=15
-                        )
-                        if gmap_results:
-                            gs = get_session()
-                            saved_gmap = 0
-                            for item in gmap_results:
-                                name = (item.get("name") or "").strip()
-                                if not name or len(name) < 3:
-                                    continue
-                                exists = gs.query(Hotel).filter(
-                                    Hotel.name == name,
-                                    Hotel.city == gmap_city
-                                ).first()
-                                if not exists:
-                                    gs.add(Hotel(
-                                        name=name,
-                                        city=gmap_city,
-                                        address=item.get("address"),
-                                        website=item.get("website"),
-                                        phone_main=item.get("phone"),
-                                        rating=item.get("rating", 0),
-                                        source="google_maps",
-                                        status="Mới tìm thấy",
-                                    ))
-                                    saved_gmap += 1
-                            gs.commit()
-                            gs.close()
-                            log_activity(
-                                "✅ Google Maps xong",
-                                f"+{saved_gmap} {gmap_type} mới tại {gmap_city} "
-                                f"(có phone: {sum(1 for r in gmap_results if r.get('phone'))})"
-                            )
-                    except Exception as eg:
-                        log_activity("⚠️ Google Maps lỗi", str(eg)[:80])
+                # Google Maps + domain email scan đã tích hợp vào
+                # run_continuous_scout_cycle() Part 1b — chạy mỗi chu kỳ
 
 
         except Exception as e:
