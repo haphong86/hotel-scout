@@ -168,14 +168,10 @@ def send_email(
         res = _send_via_resend(to_email, final_to_name, final_subject, final_body)
         if res.get("success"):
             return res
-        # Nếu Resend fail vì domain chưa verify → fallback SMTP
-        err = str(res.get("error", ""))
-        if "domain" in err.lower() or "verify" in err.lower() or "403" in err:
-            pass  # fallthrough to SMTP
-        else:
-            return res  # lỗi khác thì trả về luôn
+        # Nếu Resend fail vì BẤT KỲ lý do → fallback SMTP (không return lỗi sớm)
+        print(f"  ⚠️ Resend fail ({res.get('error','')}), fallback SMTP...")
 
-    # ── BƯỚC 2: Fallback Gmail SMTP (chỉ hoạt động từ IP nhà) ──
+    # ── BƯỚC 2: Fallback Gmail SMTP ──────────────────────────────
     try:
         msg = build_email(
             to_email=to_email,
