@@ -807,7 +807,10 @@ with tab_today:
                         if db_proj:
                             db_proj.status = "Đã gửi Email Launching"
                             safe_commit(session)
-                    _t.sleep(1.5)
+                    import random as _rnd
+                    _delay = _rnd.randint(180, 420)
+                    add_log(f'  ⏳ Chờ {_delay//60} phút {_delay%60}s trước email tiếp theo...')
+                    _t.sleep(_delay)
                 else:
                     c_dom = to_mail.split("@")[-1].lower().strip()
                     is_intl = any(k in h_name.lower() for k in intl_keywords) or (c_dom.endswith(".com") and not c_dom.endswith(".vn"))
@@ -852,7 +855,10 @@ with tab_today:
                         elog.status = "Thất bại"
                         elog.error_msg = res.get("error", "") or res.get("message", "")
                         safe_commit(session)
-                    _t.sleep(1.5)
+                    import random as _rnd
+                    _delay = _rnd.randint(180, 420)
+                    add_log(f'  ⏳ Chờ {_delay//60} phút {_delay%60}s trước email tiếp theo...')
+                    _t.sleep(_delay)
             except Exception as e_item:
                 add_log(f"  ⚠️ Lỗi xử lý gửi: {e_item}")
                 continue

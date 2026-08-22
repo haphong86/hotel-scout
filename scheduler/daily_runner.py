@@ -157,7 +157,12 @@ def run_daily_autopilot_job():
         except Exception as ex:
             print(f"  ⚠️ Lỗi ngoại lệ khi gửi {h_name}: {ex}")
 
-        time.sleep(2.0)
+        # Nghỉ ngẫu nhiên 3-7 phút giữa mỗi email — tránh spam filter
+        import random
+        delay = random.randint(180, 420)  # 3–7 phút
+        print(f"  ⏳ Chờ {delay//60} phút {delay%60}s trước email tiếp theo...")
+        time.sleep(delay)
+
 
     print(f"✅ Đã gửi thành công {sent_count}/20 email hôm nay!")
     session.close()
