@@ -675,7 +675,13 @@ def _cron_loop():
                 _save_state(_st)
 
                 if not batch_cities:
-                    log_activity("✅ Toàn quốc đã quét", f"Tất cả {len(ALL_CITIES)} thành phố đều trong cooldown — nghỉ 3 phút")
+                    # Hết 1 vòng → reset cooldown → bắt ngay vòng 2
+                    log_activity("🔁 Vòng mới", f"Đã quét hết {len(ALL_CITIES)} thành phố — bắt đầu vòng quét tiếp theo")
+                    _st2 = _load_state()
+                    _st2["city_last_scanned"] = {}   # Reset toàn bộ cooldown
+                    _st2["city_index"] = 0            # Quét lại từ đầu (Đà Nẵng ưu tiên)
+                    _save_state(_st2)
+                    city_index = 0
                 else:
                     log_activity("🔍 SCAN DATA", f"Đang quét: {', '.join(batch_cities)}")
                     run_continuous_scout_cycle(batch_cities)
