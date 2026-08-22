@@ -1252,13 +1252,34 @@ with tab_logs:
             if st.button("🔄 Làm mới trạng thái", key="refresh_monitor_btn", use_container_width=True, help="Cập nhật trạng thái hệ thống ngầm ngay lập tức"):
                 st.rerun()
 
-        st.markdown("<div style='font-size:11px;color:#E50914;font-weight:bold;margin:8px 0 4px;'>📜 HOẠT ĐỘNG HỆ THỐNG GẦN ĐÂY (ACTIVITY STREAM):</div>", unsafe_allow_html=True)
+        # ── 15 hoạt động gần nhất (live) ──────────────────────────────
+        st.markdown("<div style='font-size:11px;color:#E50914;font-weight:bold;margin:8px 0 4px;'>📜 HOẠT ĐỘNG GẦN NHẤT:</div>", unsafe_allow_html=True)
         activities = hb.get("recent_activities", [])
         if activities:
-            for act in activities[:10]:
+            for act in activities[:15]:
                 st.caption(f"• `{act}`")
         else:
-            st.caption("• Hệ thống đang chạy giám sát 24/7, sẵn sàng cho chu kỳ tiếp theo...")
+            st.caption("• Hệ thống đang khởi động...")
+
+        # ── Toàn bộ lịch sử (full log) ────────────────────────────────
+        st.markdown("<div style='font-size:11px;color:#E50914;font-weight:bold;margin:12px 0 4px;'>📋 TOÀN BỘ NHẬT KÝ HOẠT ĐỘNG:</div>", unsafe_allow_html=True)
+        try:
+            from scheduler.heartbeat_tracker import get_full_log
+            full_log = get_full_log(max_lines=500)
+            if full_log:
+                log_text = "\n".join(full_log)
+                st.text_area(
+                    label="",
+                    value=log_text,
+                    height=400,
+                    key="full_activity_log",
+                    help="Toàn bộ lịch sử hoạt động — mới nhất ở đầu"
+                )
+                st.caption(f"📊 Tổng cộng {len(full_log)} dòng log")
+            else:
+                st.caption("Chưa có log — hệ thống đang khởi động lần đầu...")
+        except Exception as e:
+            st.caption(f"Log chưa sẵn sàng: {e}")
 
     st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
 
