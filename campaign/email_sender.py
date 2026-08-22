@@ -97,40 +97,6 @@ def get_smtp_session(timeout: int = 15):
     return server
 
 
-def _send_via_resend(to_email: str, to_name: str, subject: str, html_body: str) -> Dict:
-    """Gửi qua Resend API — hoạt động từ mọi IP kể cả Railway datacenter."""
-    import os
-    api_key = os.getenv("RESEND_API_KEY", "")
-    if not api_key:
-        return {"success": False, "error": "Không có RESEND_API_KEY"}
-    sender_email = EMAIL_CONFIG.get("sender_email", "sales@haphong.com")
-    sender_name  = EMAIL_CONFIG.get("sender_name", "Hà Phong Visuals")
-    try:
-        import urllib.request, json as _json
-        payload = _json.dumps({
-            "from": f"{sender_name} <{sender_email}>",
-            "to": [to_email],
-            "subject": subject,
-            "html": html_body,
-        }).encode("utf-8")
-        req = urllib.request.Request(
-            "https://api.resend.com/emails",
-            data=payload,
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            },
-            method="POST"
-        )
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            data = _json.loads(resp.read())
-            if data.get("id"):
-                return {"success": True, "id": data["id"], "method": "resend"}
-            return {"success": False, "error": str(data)}
-    except Exception as e:
-        return {"success": False, "error": f"Resend error: {e}"}
-
-
 def send_email(
     to_email: str,
     arg2: str = "",
@@ -162,16 +128,7 @@ def send_email(
         final_subject = subject or arg2
         final_body    = html_body or ""
 
-    # ── BƯỚC 1: Thử Resend API (không bị block bởi Railway IP) ──
-    import os
-    if os.getenv("RESEND_API_KEY"):
-        res = _send_via_resend(to_email, final_to_name, final_subject, final_body)
-        if res.get("success"):
-            return res
-        # Nếu Resend fail vì BẤT KỲ lý do → fallback SMTP (không return lỗi sớm)
-        print(f"  ⚠️ Resend fail ({res.get('error','')}), fallback SMTP...")
-
-    # ── BƯỚC 2: Fallback Gmail SMTP ──────────────────────────────
+    # Gửi qua Gmail SMTP
     try:
         msg = build_email(
             to_email=to_email,
@@ -180,12 +137,12 @@ def send_email(
             html_body=final_body
         )
         server = get_smtp_session(timeout=15)
-        sender_addr = EMAIL_CONFIG.get("smtp_user") or "sales@haphong.com"
+        sender_addr = EMAIL_CONFIG.get("smtp_user") or "haphong86@gmail.com"
         server.send_message(msg, from_addr=sender_addr, to_addrs=[to_email])
         server.quit()
-        return {"success": True, "method": "smtp"}
+        return {"success": True}
     except smtplib.SMTPAuthenticationError:
-        return {"success": False, "error": "Auth failed — Gmail chặn IP Railway, kiểm tra Resend API Key"}
+        return {"success": False, "error": "Auth failed — kiểm tra App Password Gmail"}
     except smtplib.SMTPRecipientsRefused:
         return {"success": False, "error": "Email không tồn tại"}
     except Exception as e:
