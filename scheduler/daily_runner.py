@@ -443,7 +443,6 @@ def run_continuous_scout_cycle(cities=None):
                         verify_status="LIKELY",
                         is_valid=True,
                         source="google_maps_crawl",
-                        can_send=True,
                     ))
                     gmap_new_emails += 1
                 se.commit()
@@ -524,7 +523,6 @@ def run_continuous_scout_cycle(cities=None):
                         verify_status="LIKELY",
                         is_valid=True,
                         source="website_crawl",
-                        can_send=True,
                     ))
                     saved_count += 1
                 except Exception:
