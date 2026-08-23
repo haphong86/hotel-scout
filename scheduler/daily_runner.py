@@ -743,12 +743,9 @@ def _cron_loop():
             today_str = now_vn.strftime("%Y-%m-%d")
             last_run_date = _get_last_run_date()
 
-            # ── 1. GỬI EMAIL từ 9:00 AM (1 lần/ngày) ─────────────────────
-            # Dùng >= 9 để không bị miss nếu scheduler restart sau 9AM
-            if now_vn.hour >= 9 and last_run_date != today_str:
-                _set_last_run_date(today_str)
-                log_activity("📤 GỬI EMAIL", f"Bắt đầu gửi email — {now_vn.strftime('%H:%M')} (chưa gửi hôm nay)...")
-                run_daily_autopilot_job()
+            # ── EMAIL: Chỉ gửi từ Local Mac (không gửi tự động trên Railway) ──
+            # Dùng nút "Gửi ngay" trong tab Top 20 trên app local
+            # Railway chỉ chạy scanner 24/7
 
             # ── 2. SCAN + CRAWL DATA liên tục cả ngày ───────────────────────
             if now_ts - last_scout_time >= SCOUT_INTERVAL:
