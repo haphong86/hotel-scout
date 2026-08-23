@@ -8,14 +8,16 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# ── Email Sender (Gmail + Cloudflare Routing) ──────────────
+# ── Email Sender (Resend API ưu tiên → Gmail SMTP fallback) ──
 EMAIL_CONFIG = {
-    "sender_name":  os.getenv("SENDER_NAME", "Phong | Hà Phong Visuals"),
-    "sender_email": os.getenv("SENDER_EMAIL", "sales@haphong.com"),
-    "smtp_server":  os.getenv("SMTP_SERVER", "smtp.gmail.com"),
-    "smtp_port":    int(os.getenv("SMTP_PORT", "587")),
-    "smtp_user":    os.getenv("SMTP_USER", "haphong86@gmail.com"),
-    "smtp_password": os.getenv("SMTP_PASSWORD", ""),  # App Password 16 ký tự
+    "sender_name":   os.getenv("SENDER_NAME", "Phong | Hà Phong Visuals"),
+    "sender_email":  os.getenv("SENDER_EMAIL", "sales@haphong.com"),
+    "smtp_server":   os.getenv("SMTP_SERVER", "smtp.gmail.com"),
+    "smtp_port":     int(os.getenv("SMTP_PORT", "587")),
+    "smtp_user":     os.getenv("SMTP_USER", "haphong86@gmail.com"),
+    "smtp_password": os.getenv("SMTP_PASSWORD", ""),
+    # Resend API — dùng để gửi email thật trên Railway (SMTP bị chặn)
+    "resend_api_key": os.getenv("RESEND_API_KEY", ""),
 }
 
 # ── Google Maps / Places API ───────────────────────────────

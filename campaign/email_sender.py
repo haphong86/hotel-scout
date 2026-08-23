@@ -128,7 +128,34 @@ def send_email(
         final_subject = subject or arg2
         final_body    = html_body or ""
 
-    # Gửi qua Gmail SMTP
+    # ── Ưu tiên 1: Resend API (HTTPS — không bị Railway chặn) ──
+    resend_key = EMAIL_CONFIG.get("resend_api_key", "")
+    if resend_key:
+        try:
+            import httpx
+            payload = {
+                "from": f"{EMAIL_CONFIG.get('sender_name', 'Hà Phong Visuals')} <{EMAIL_CONFIG.get('sender_email', 'sales@haphong.com')}>",
+                "to": [to_email],
+                "subject": final_subject,
+                "html": final_body,
+                "reply_to": EMAIL_CONFIG.get("sender_email", "sales@haphong.com"),
+            }
+            resp = httpx.post(
+                "https://api.resend.com/emails",
+                headers={"Authorization": f"Bearer {resend_key}", "Content-Type": "application/json"},
+                json=payload,
+                timeout=20,
+            )
+            if resp.status_code in (200, 201):
+                data = resp.json()
+                return {"success": True, "message_id": data.get("id", ""), "method": "resend"}
+            else:
+                # Resend thất bại → thử SMTP
+                pass
+        except Exception:
+            pass  # Fallback sang SMTP
+
+    # ── Fallback: Gmail SMTP (chỉ hoạt động local, Railway thường bị block) ──
     try:
         msg = build_email(
             to_email=to_email,
@@ -140,7 +167,7 @@ def send_email(
         sender_addr = EMAIL_CONFIG.get("smtp_user") or "haphong86@gmail.com"
         server.send_message(msg, from_addr=sender_addr, to_addrs=[to_email])
         server.quit()
-        return {"success": True}
+        return {"success": True, "method": "smtp"}
     except smtplib.SMTPAuthenticationError:
         return {"success": False, "error": "Auth failed — kiểm tra App Password Gmail"}
     except smtplib.SMTPRecipientsRefused:
