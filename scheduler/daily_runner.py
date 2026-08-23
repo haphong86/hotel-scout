@@ -71,6 +71,48 @@ def run_daily_autopilot_job():
     prioritized_list = get_prioritized_outreach_queue(limit=20, selected_cities=target_cities)
     sent_count = 0
 
+    # =========================================================
+    # PREFLIGHT: Kiểm tra có thể gửi email không TRƯỚC KHI chạy
+    # =========================================================
+    from config import EMAIL_CONFIG
+    resend_key = EMAIL_CONFIG.get("resend_api_key", "")
+    can_send = False
+
+    if resend_key:
+        # Resend API có key → dùng được
+        can_send = True
+        log_activity("📡 Email method", "Resend API ✅")
+    else:
+        # Thử SMTP với timeout ngắn (3s) — không block lâu
+        try:
+            import smtplib, ssl as _ssl, certifi as _certifi
+            _ctx = _ssl.create_default_context(cafile=_certifi.where())
+            _s = smtplib.SMTP_SSL("smtp.gmail.com", 465, context=_ctx, timeout=3)
+            _s.quit()
+            can_send = True
+            log_activity("📡 Email method", "Gmail SMTP port 465 ✅")
+        except Exception:
+            try:
+                _s2 = smtplib.SMTP("smtp.gmail.com", 587, timeout=3)
+                _s2.quit()
+                can_send = True
+                log_activity("📡 Email method", "Gmail SMTP port 587 ✅")
+            except Exception:
+                can_send = False
+
+    if not can_send:
+        log_activity(
+            "⛔ Bỏ qua gửi email",
+            "Không có Resend API key và SMTP bị chặn trên Railway. "
+            "Thêm RESEND_API_KEY vào Railway Variables để bật lại."
+        )
+        send_telegram_message(
+            "⛔ *EMAIL BỊ CHẶN*\n"
+            "Railway block SMTP. Thêm `RESEND_API_KEY` vào Railway Variables.\n"
+            "Truy cập resend.com → API Keys → copy key → dán vào Railway."
+        )
+        return   # Thoát ngay, không block app
+
     with open("campaign/templates/email_01_intro.html", "r", encoding="utf-8") as f:
         tpl_vi = f.read()
     with open("campaign/templates/email_en_01_intro.html", "r", encoding="utf-8") as f:
@@ -113,13 +155,15 @@ def run_daily_autopilot_job():
         # CỔNG KIỂM TRA HÒM THƯ TRỰC TIẾP (ZERO-BOUNCE MAILBOX PING GATE)
         # =====================================================================
         from extractor.email_verifier import check_mx, check_smtp_mailbox_exists
-        dom = to_mail.split("@")[-1]
-        mx_server = check_mx(dom)
-        if mx_server:
-            is_alive = check_smtp_mailbox_exists(to_mail, mx_server)
-            if is_alive is False:
-                print(f"  🚫 BỎ QUA [HÒM THƯ KHÔNG TỒN TẠI]: {h_name} -> {to_mail} (Mail Server báo 550 User Inactive/Not Found)")
-                continue
+        # Chỉ check SMTP mailbox nếu đang dùng SMTP (Resend không cần check này)
+        if not resend_key:
+            dom = to_mail.split("@")[-1]
+            mx_server = check_mx(dom)
+            if mx_server:
+                is_alive = check_smtp_mailbox_exists(to_mail, mx_server)
+                if is_alive is False:
+                    print(f"  🚫 BỎ QUA [HÒM THƯ KHÔNG TỒN TẠI]: {h_name} -> {to_mail}")
+                    continue
 
         # Gửi email an toàn khi hòm thư đã xác thực tồn tại
         try:
