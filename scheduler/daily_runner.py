@@ -421,40 +421,48 @@ def run_continuous_scout_cycle(cities=None):
     except Exception as eg:
         log_activity("⚠️ GMaps lỗi", str(eg)[:80])
 
-    # ── PHẦN 2: Scan domain tất cả KS có website chưa có email ───
-    from tools.domain_email_scanner import scan_domain, extract_emails_from_html
+    # ── PHẦN 2: Scan domain — ưu tiên KS chưa có email, sau đó quét thêm KS cũ ──
+    from tools.domain_email_scanner import scan_domain
+    from sqlalchemy import func as _func
+
     s2 = get_session()
     try:
+        # Lấy tất cả KS có website — ưu tiên KS ít email nhất (chưa có = 0 lên đầu)
+        # Dùng outerjoin để đếm số contact hiện có
         unverified = (
             s2.query(Hotel)
-            .filter(Hotel.website.like("http%"), ~Hotel.contacts.any())
-            .order_by(Hotel.stars.desc(), Hotel.created_at.desc())
+            .filter(Hotel.website.like("http%"))
+            .outerjoin(Contact, Contact.hotel_id == Hotel.id)
+            .group_by(Hotel.id)
+            .order_by(
+                _func.count(Contact.id).asc(),   # 0 contact lên đầu
+                Hotel.stars.desc(),
+                Hotel.created_at.desc()
+            )
             .limit(15)
             .all()
         )
         s2.close()
-        log_activity("📧 Scan domain email", f"Đang quét {len(unverified)} website KS...")
+        log_activity("📧 Scan domain email", f"Đang quét {len(unverified)} website KS (ưu tiên chưa có email)...")
 
         for idx, h in enumerate(unverified):
             try:
+                n_contacts = len(h.contacts or [])
                 log_activity(
                     f"🔍 [{idx+1}/{len(unverified)}] Scan",
-                    f"{h.name} ({h.city or 'VN'}) — {(h.website or '')[:50]}"
+                    f"{h.name} ({h.city or 'VN'}) — đã có {n_contacts} email — {(h.website or '')[:40]}"
                 )
 
-                # Scan domain trực tiếp — đơn giản, không cần SMTP verify
                 _, emails = scan_domain(h.website)
 
                 if not emails:
                     log_activity("➖ Bỏ qua", f"{h.name} — không có email trên website")
                     continue
 
-                # Lưu email tìm được vào DB
                 s3 = get_session()
                 saved_count = 0
                 for email in emails:
                     try:
-                        # Kiểm tra trùng
                         exists = s3.query(Contact).filter(Contact.email == email).first()
                         if exists:
                             continue
@@ -462,7 +470,7 @@ def run_continuous_scout_cycle(cities=None):
                             hotel_id=h.id,
                             email=email,
                             title="",
-                            verify_status="LIKELY",   # Tìm từ website → đáng tin
+                            verify_status="LIKELY",
                             is_valid=True,
                             source="website_crawl",
                             can_send=True,
@@ -480,7 +488,7 @@ def run_continuous_scout_cycle(cities=None):
                         f"{h.name}: {', '.join(emails[:3])}" + (f" +{len(emails)-3} nữa" if len(emails) > 3 else "")
                     )
                 else:
-                    log_activity("➖ Đã có", f"{h.name} — email đã tồn tại trong DB")
+                    log_activity("➖ Đã có", f"{h.name} — tất cả email đã trong DB")
 
             except Exception as ex:
                 log_activity("⚠️ Lỗi scan", f"{h.name}: {str(ex)[:60]}")
@@ -488,6 +496,50 @@ def run_continuous_scout_cycle(cities=None):
 
     except Exception as e:
         log_activity("⚠️ Scan lỗi", str(e)[:80])
+        try: s2.close()
+        except Exception: pass
+
+    # ── PHẦN 2b: Tìm website cho KS chưa có website qua tên + thành phố ──
+    try:
+        import httpx as _hx, re as _re
+
+        s2b = get_session()
+        no_web_hotels = (
+            s2b.query(Hotel)
+            .filter(
+                (Hotel.website == None) | (Hotel.website == "") | (~Hotel.website.like("http%"))
+            )
+            .order_by(Hotel.stars.desc(), Hotel.created_at.desc())
+            .limit(5)   # 5 KS/chu kỳ — tránh spam Google
+            .all()
+        )
+        s2b.close()
+
+        if no_web_hotels:
+            log_activity("🔎 Tìm website", f"Google search {len(no_web_hotels)} KS chưa có website...")
+        for h in no_web_hotels:
+            try:
+                query = f"{h.name} {h.city or 'Vietnam'} hotel official website"
+                url = f"https://www.google.com/search?q={_hx.URL(query)}&num=3"
+                resp = _hx.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=8, follow_redirects=True)
+                # Tìm URL trong kết quả không phải OTA/Google
+                OTA = ["booking.com","agoda.com","tripadvisor","airbnb","expedia","traveloka","google."]
+                found_urls = _re.findall(r'https?://(?:www\.)?([a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})', resp.text)
+                for domain in found_urls:
+                    if not any(ota in domain for ota in OTA) and len(domain) > 5:
+                        website = f"https://{domain}"
+                        sw = get_session()
+                        sw.query(Hotel).filter(Hotel.id == h.id).update({"website": website})
+                        sw.commit()
+                        sw.close()
+                        log_activity("🌐 Website tìm được", f"{h.name} → {website}")
+                        break
+            except Exception:
+                continue
+
+    except Exception as e2b:
+        log_activity("⚠️ Tìm website lỗi", str(e2b)[:60])
+
         try: s2.close()
         except Exception: pass
 
