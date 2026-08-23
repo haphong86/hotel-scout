@@ -647,10 +647,11 @@ def _cron_loop():
             today_str = now_vn.strftime("%Y-%m-%d")
             last_run_date = _get_last_run_date()
 
-            # ── 1. GỬI EMAIL lúc đúng 9:00 AM (1 lần/ngày) ────────────────
-            if now_vn.hour == 9 and last_run_date != today_str:
+            # ── 1. GỬI EMAIL từ 9:00 AM (1 lần/ngày) ─────────────────────
+            # Dùng >= 9 để không bị miss nếu scheduler restart sau 9AM
+            if now_vn.hour >= 9 and last_run_date != today_str:
                 _set_last_run_date(today_str)
-                log_activity("📤 GỬI EMAIL 9AM", "Bắt đầu gửi 20 email với delay 3-7 phút/email...")
+                log_activity("📤 GỬI EMAIL", f"Bắt đầu gửi email — {now_vn.strftime('%H:%M')} (chưa gửi hôm nay)...")
                 run_daily_autopilot_job()
 
             # ── 2. SCAN + CRAWL DATA liên tục cả ngày ───────────────────────
