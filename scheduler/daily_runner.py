@@ -471,10 +471,15 @@ def run_continuous_scout_cycle(cities=None):
 
     s2 = get_session()
     try:
-        # Lấy tất cả KS có website — ưu tiên KS ít email nhất (chưa có = 0 lên đầu)
-        # Dùng outerjoin để đếm số contact hiện có
-        unverified = (
-            s2.query(Hotel)
+        # Load dữ liệu thành tuple đơn giản — tránh DetachedInstanceError khi đóng session
+        rows = (
+            s2.query(
+                Hotel.id,
+                Hotel.name,
+                Hotel.city,
+                Hotel.website,
+                _func.count(Contact.id).label("contact_count")
+            )
             .filter(Hotel.website.like("http%"))
             .outerjoin(Contact, Contact.hotel_id == Hotel.id)
             .group_by(Hotel.id)
@@ -486,62 +491,59 @@ def run_continuous_scout_cycle(cities=None):
             .limit(15)
             .all()
         )
+    finally:
         s2.close()
-        log_activity("📧 Scan domain email", f"Đang quét {len(unverified)} website KS (ưu tiên chưa có email)...")
 
-        for idx, h in enumerate(unverified):
-            try:
-                n_contacts = len(h.contacts or [])
-                log_activity(
-                    f"🔍 [{idx+1}/{len(unverified)}] Scan",
-                    f"{h.name} ({h.city or 'VN'}) — đã có {n_contacts} email — {(h.website or '')[:40]}"
-                )
+    log_activity("📧 Scan domain email", f"Đang quét {len(rows)} website KS (ưu tiên chưa có email)...")
 
-                _, emails = scan_domain(h.website)
+    for idx, row in enumerate(rows):
+        h_id, h_name, h_city, h_website, n_contacts = row
+        try:
+            log_activity(
+                f"🔍 [{idx+1}/{len(rows)}] Scan",
+                f"{h_name} ({h_city or 'VN'}) — đã có {n_contacts} email — {(h_website or '')[:40]}"
+            )
 
-                if not emails:
-                    log_activity("➖ Bỏ qua", f"{h.name} — không có email trên website")
-                    continue
+            _, emails = scan_domain(h_website)
 
-                s3 = get_session()
-                saved_count = 0
-                for email in emails:
-                    try:
-                        exists = s3.query(Contact).filter(Contact.email == email).first()
-                        if exists:
-                            continue
-                        s3.add(Contact(
-                            hotel_id=h.id,
-                            email=email,
-                            title="",
-                            verify_status="LIKELY",
-                            is_valid=True,
-                            source="website_crawl",
-                            can_send=True,
-                        ))
-                        saved_count += 1
-                    except Exception:
-                        continue
-                s3.commit()
-                s3.close()
-
-                if saved_count > 0:
-                    new_emails += saved_count
-                    log_activity(
-                        "✅ Email lưu",
-                        f"{h.name}: {', '.join(emails[:3])}" + (f" +{len(emails)-3} nữa" if len(emails) > 3 else "")
-                    )
-                else:
-                    log_activity("➖ Đã có", f"{h.name} — tất cả email đã trong DB")
-
-            except Exception as ex:
-                log_activity("⚠️ Lỗi scan", f"{h.name}: {str(ex)[:60]}")
+            if not emails:
+                log_activity("➖ Bỏ qua", f"{h_name} — không có email trên website")
                 continue
 
-    except Exception as e:
-        log_activity("⚠️ Scan lỗi", str(e)[:80])
-        try: s2.close()
-        except Exception: pass
+            s3 = get_session()
+            saved_count = 0
+            for email in emails:
+                try:
+                    exists = s3.query(Contact).filter(Contact.email == email).first()
+                    if exists:
+                        continue
+                    s3.add(Contact(
+                        hotel_id=h_id,
+                        email=email,
+                        title="",
+                        verify_status="LIKELY",
+                        is_valid=True,
+                        source="website_crawl",
+                        can_send=True,
+                    ))
+                    saved_count += 1
+                except Exception:
+                    continue
+            s3.commit()
+            s3.close()
+
+            if saved_count > 0:
+                new_emails += saved_count
+                log_activity(
+                    "✅ Email lưu",
+                    f"{h_name}: {', '.join(emails[:3])}" + (f" +{len(emails)-3} nữa" if len(emails) > 3 else "")
+                )
+            else:
+                log_activity("➖ Đã có", f"{h_name} — tất cả email đã trong DB")
+
+        except Exception as ex:
+            log_activity("⚠️ Lỗi scan", f"{h_name}: {str(ex)[:60]}")
+            continue
 
     # ── PHẦN 2b: Tìm website cho KS chưa có website qua tên + thành phố ──
     try:
