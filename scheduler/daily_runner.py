@@ -467,10 +467,13 @@ def run_continuous_scout_cycle(cities=None):
     # ── PHẦN 2: Scan domain — ưu tiên KS chưa có email, sau đó quét thêm KS cũ ──
     from tools.domain_email_scanner import scan_domain
     from sqlalchemy import func as _func
+    from datetime import datetime as _dt, timedelta as _td
+
+    CRAWL_COOLDOWN_HOURS = 48   # Không scan lại website trong 48h
 
     s2 = get_session()
     try:
-        # Load dữ liệu thành tuple đơn giản — tránh DetachedInstanceError khi đóng session
+        cutoff = _dt.now() - _td(hours=CRAWL_COOLDOWN_HOURS)
         rows = (
             s2.query(
                 Hotel.id,
@@ -480,12 +483,17 @@ def run_continuous_scout_cycle(cities=None):
                 _func.count(Contact.id).label("contact_count")
             )
             .filter(Hotel.website.like("http%"))
+            # Chỉ scan KS chưa crawl hoặc crawl trước 48h
+            .filter(
+                (Hotel.website_crawled_at == None) |
+                (Hotel.website_crawled_at < cutoff)
+            )
             .outerjoin(Contact, Contact.hotel_id == Hotel.id)
             .group_by(Hotel.id)
             .order_by(
                 _func.count(Contact.id).asc(),   # 0 contact lên đầu
+                Hotel.website_crawled_at.asc(),   # Lâu chưa scan lên đầu
                 Hotel.stars.desc(),
-                Hotel.created_at.desc()
             )
             .limit(15)
             .all()
@@ -493,7 +501,10 @@ def run_continuous_scout_cycle(cities=None):
     finally:
         s2.close()
 
-    log_activity("📧 Scan domain email", f"Đang quét {len(rows)} website KS (ưu tiên chưa có email)...")
+    if not rows:
+        log_activity("📧 Domain scan", "Tất cả KS đã scan trong 48h — bỏ qua chu kỳ này")
+    else:
+        log_activity("📧 Scan domain email", f"Đang quét {len(rows)} website KS chưa scan trong 48h...")
 
     for idx, row in enumerate(rows):
         h_id, h_name, h_city, h_website, n_contacts = row
@@ -504,6 +515,17 @@ def run_continuous_scout_cycle(cities=None):
             )
 
             _, emails = scan_domain(h_website)
+
+            # Cập nhật timestamp đã crawl — dù có tìm được email hay không
+            try:
+                s_upd = get_session()
+                s_upd.query(Hotel).filter(Hotel.id == h_id).update(
+                    {"website_crawled_at": _dt.now()}
+                )
+                s_upd.commit()
+                s_upd.close()
+            except Exception:
+                pass
 
             if not emails:
                 log_activity("➖ Bỏ qua", f"{h_name} — không có email trên website")

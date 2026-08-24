@@ -56,6 +56,7 @@ class Hotel(Base):
     notes         = Column(Text)
     created_at    = Column(DateTime, default=datetime.now)
     updated_at    = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+    website_crawled_at = Column(DateTime, nullable=True)  # Lần cuối scan email từ website
 
     contacts      = relationship("Contact", back_populates="hotel", cascade="all, delete-orphan")
     email_logs    = relationship("EmailLog", back_populates="hotel")
