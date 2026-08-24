@@ -233,7 +233,41 @@ def init_db():
     Base.metadata.create_all(_engine)
     # autoflush=False: tránh lỗi "Query-invoked autoflush" khi session có pending changes
     _SessionFactory = sessionmaker(bind=_engine, autoflush=False)
+
+    # ── Auto-migration: thêm cột mới nếu chưa có (không dùng Alembic) ──
+    _run_migrations(_engine)
+
     return _engine
+
+
+def _run_migrations(engine):
+    """Chạy ALTER TABLE an toàn — bỏ qua nếu cột đã tồn tại"""
+    migrations = [
+        # (table, column, definition)
+        ("hotels", "website_crawled_at", "TIMESTAMP NULL"),
+    ]
+    with engine.connect() as conn:
+        for table, col, definition in migrations:
+            try:
+                # PostgreSQL
+                conn.execute(__import__("sqlalchemy").text(
+                    f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {definition}"
+                ))
+                conn.commit()
+            except Exception:
+                try:
+                    # SQLite không hỗ trợ IF NOT EXISTS → check trước
+                    result = conn.execute(__import__("sqlalchemy").text(
+                        f"PRAGMA table_info({table})"
+                    ))
+                    cols = [row[1] for row in result]
+                    if col not in cols:
+                        conn.execute(__import__("sqlalchemy").text(
+                            f"ALTER TABLE {table} ADD COLUMN {col} {definition}"
+                        ))
+                        conn.commit()
+                except Exception:
+                    pass  # Column đã tồn tại → bỏ qua
 
 
 
